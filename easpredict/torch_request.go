@@ -1,6 +1,6 @@
-package easprediction
+package easpredict
 
-import "./torch_predict_protos"
+import "eas-golang-sdk/easpredict/torch_predict_protos"
 
 // TorchRequest class for PyTorch data and requests
 type TorchRequest struct {

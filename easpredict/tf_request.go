@@ -1,21 +1,21 @@
-package easprediction
+package easpredict
 
-import "./tf_predict_protos"
+import "eas-golang-sdk/easpredict/tf_predict_protos"
 
-// TfRequest class for tensorflow data and requests
-type TfRequest struct {
+// TFRequest class for tensorflow data and requests
+type TFRequest struct {
 	RequestData tf_predict_protos.PredictRequest
 }
 
 // SetSignatureName set signature name for TensorFlow request
-func (tr *TfRequest) SetSignatureName(sigName string) {
+func (tr *TFRequest) SetSignatureName(sigName string) {
 	tr.RequestData.SignatureName = sigName
 }
 
-// AddFeedFloat32 function adds float values input data for TfRequest
-func (tr *TfRequest) AddFeedFloat32(inputName string, tfDataType tf_predict_protos.ArrayDataType, shape []int64, content []float32) {
+// AddFeedFloat32 function adds float values input data for TFRequest
+func (tr *TFRequest) AddFeedFloat32(inputName string, tfDataType tf_predict_protos.ArrayDataType, shape []int64, content []float32) {
 	requestProto := tf_predict_protos.ArrayProto{
-		Dtype: tfDataType,
+		Dtype: TfType_DT_FLOAT,
 		ArrayShape: &tf_predict_protos.ArrayShape{
 			Dim: shape,
 		},
@@ -27,10 +27,10 @@ func (tr *TfRequest) AddFeedFloat32(inputName string, tfDataType tf_predict_prot
 	tr.RequestData.Inputs[inputName] = &requestProto
 }
 
-// AddFeedFloat64 function adds double values input data for TfRequest
-func (tr *TfRequest) AddFeedFloat64(inputName string, tfDataType tf_predict_protos.ArrayDataType, shape []int64, content []float64) {
+// AddFeedFloat64 function adds double values input data for TFRequest
+func (tr *TFRequest) AddFeedFloat64(inputName string, tfDataType tf_predict_protos.ArrayDataType, shape []int64, content []float64) {
 	requestProto := tf_predict_protos.ArrayProto{
-		Dtype: tfDataType,
+		Dtype: TfType_DT_DOUBLE,
 		ArrayShape: &tf_predict_protos.ArrayShape{
 			Dim: shape,
 		},
@@ -42,10 +42,10 @@ func (tr *TfRequest) AddFeedFloat64(inputName string, tfDataType tf_predict_prot
 	tr.RequestData.Inputs[inputName] = &requestProto
 }
 
-// AddFeedInt32 function adds int values input data for TfRequest
-func (tr *TfRequest) AddFeedInt32(inputName string, tfDataType tf_predict_protos.ArrayDataType, shape []int64, content []int32) {
+// AddFeedInt32 function adds int values input data for TFRequest
+func (tr *TFRequest) AddFeedInt32(inputName string, tfDataType tf_predict_protos.ArrayDataType, shape []int64, content []int32) {
 	requestProto := tf_predict_protos.ArrayProto{
-		Dtype: tfDataType,
+		Dtype: TfType_DT_INT32,
 		ArrayShape: &tf_predict_protos.ArrayShape{
 			Dim: shape,
 		},
@@ -57,10 +57,10 @@ func (tr *TfRequest) AddFeedInt32(inputName string, tfDataType tf_predict_protos
 	tr.RequestData.Inputs[inputName] = &requestProto
 }
 
-// AddFeedInt64 function adds int64 values input data for TfRequest
-func (tr *TfRequest) AddFeedInt64(inputName string, tfDataType tf_predict_protos.ArrayDataType, shape []int64, content []int64) {
+// AddFeedInt64 function adds int64 values input data for TFRequest
+func (tr *TFRequest) AddFeedInt64(inputName string, tfDataType tf_predict_protos.ArrayDataType, shape []int64, content []int64) {
 	requestProto := tf_predict_protos.ArrayProto{
-		Dtype: tfDataType,
+		Dtype: TfType_DT_INT64,
 		ArrayShape: &tf_predict_protos.ArrayShape{
 			Dim: shape,
 		},
@@ -72,10 +72,10 @@ func (tr *TfRequest) AddFeedInt64(inputName string, tfDataType tf_predict_protos
 	tr.RequestData.Inputs[inputName] = &requestProto
 }
 
-// AddFeedBool function adds boolean values input data for TfRequest
-func (tr *TfRequest) AddFeedBool(inputName string, tfDataType tf_predict_protos.ArrayDataType, shape []int64, content []bool) {
+// AddFeedBool function adds boolean values input data for TFRequest
+func (tr *TFRequest) AddFeedBool(inputName string, tfDataType tf_predict_protos.ArrayDataType, shape []int64, content []bool) {
 	requestProto := tf_predict_protos.ArrayProto{
-		Dtype: tfDataType,
+		Dtype: TfType_DT_BOOL,
 		ArrayShape: &tf_predict_protos.ArrayShape{
 			Dim: shape,
 		},
@@ -87,10 +87,10 @@ func (tr *TfRequest) AddFeedBool(inputName string, tfDataType tf_predict_protos.
 	tr.RequestData.Inputs[inputName] = &requestProto
 }
 
-// AddFeedString function adds string values input data for TfRequest
-func (tr *TfRequest) AddFeedString(inputName string, tfDataType tf_predict_protos.ArrayDataType, shape []int64, content [][]byte) {
+// AddFeedString function adds string values input data for TFRequest
+func (tr *TFRequest) AddFeedString(inputName string, tfDataType tf_predict_protos.ArrayDataType, shape []int64, content [][]byte) {
 	requestProto := tf_predict_protos.ArrayProto{
-		Dtype: tfDataType,
+		Dtype: TfType_DT_STRING,
 		ArrayShape: &tf_predict_protos.ArrayShape{
 			Dim: shape,
 		},
@@ -103,47 +103,47 @@ func (tr *TfRequest) AddFeedString(inputName string, tfDataType tf_predict_proto
 }
 
 // AddFetch adds output filter (outname) for TensorFlow request
-func (tr *TfRequest) AddFetch(outName string) {
+func (tr *TFRequest) AddFetch(outName string) {
 	tr.RequestData.OutputFilter = append(tr.RequestData.OutputFilter, outName)
 }
 
-// TfResponse class for Pytf predicted results
-type TfResponse struct {
+// TFResponse class for Pytf predicted results
+type TFResponse struct {
 	Response tf_predict_protos.PredictResponse
 }
 
 // GetTensorShape returns []int64 slice as shape of tensor outindexed
-func (tresp *TfResponse) GetTensorShape(outputName string) []int64 {
+func (tresp *TFResponse) GetTensorShape(outputName string) []int64 {
 	// return tresp.PredictResponse.Outputs[outputName].ArrayShape.Dim
 	return tresp.Response.Outputs[outputName].ArrayShape.Dim
 }
 
 // GetFloatVal returns []float32 slice as output data
-func (tresp *TfResponse) GetFloatVal(outputName string) []float32 {
+func (tresp *TFResponse) GetFloatVal(outputName string) []float32 {
 	return tresp.Response.Outputs[outputName].GetFloatVal()
 }
 
 // GetDoubleVal returns []float64 slice as output data
-func (tresp *TfResponse) GetDoubleVal(outputName string) []float64 {
+func (tresp *TFResponse) GetDoubleVal(outputName string) []float64 {
 	return tresp.Response.Outputs[outputName].GetDoubleVal()
 }
 
 // GetIntVal returns []int32 slice as output data
-func (tresp *TfResponse) GetIntVal(outputName string) []int32 {
+func (tresp *TFResponse) GetIntVal(outputName string) []int32 {
 	return tresp.Response.Outputs[outputName].GetIntVal()
 }
 
 // GetInt64Val returns []int64 slice as output data
-func (tresp *TfResponse) GetInt64Val(outputName string) []int64 {
+func (tresp *TFResponse) GetInt64Val(outputName string) []int64 {
 	return tresp.Response.Outputs[outputName].GetInt64Val()
 }
 
 // GetBoolVal returns []bool slice as output data
-func (tresp *TfResponse) GetBoolVal(outputName string) []bool {
+func (tresp *TFResponse) GetBoolVal(outputName string) []bool {
 	return tresp.Response.Outputs[outputName].GetBoolVal()
 }
 
 // GetStringVal returns []string slice as output data
-func (tresp *TfResponse) GetStringVal(outputName string) [][]byte {
+func (tresp *TFResponse) GetStringVal(outputName string) [][]byte {
 	return tresp.Response.Outputs[outputName].GetStringVal()
 }

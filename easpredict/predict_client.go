@@ -1,4 +1,4 @@
-package easprediction
+package easpredict
 
 import (
 	"bytes"
@@ -7,8 +7,9 @@ import (
 	"net/http"
 	"time"
 
-	"./tf_predict_protos"
-	"./torch_predict_protos"
+	"eas-golang-sdk/easpredict/tf_predict_protos"
+	"eas-golang-sdk/easpredict/torch_predict_protos"
+
 	"github.com/golang/protobuf/proto"
 )
 
@@ -29,7 +30,6 @@ type PredictClient struct {
 	serviceName string
 	stop        bool
 	client      http.Client
-	// transport          http.Transport
 }
 
 // NewPredictClient returns an instance of PredictClient
@@ -122,9 +122,10 @@ func (p *PredictClient) buildURI() string {
 	} else if p.endpointType == "DIRECT" {
 		endName = p.cacheSrvEndPoint.Get()
 	}
-
-	if p.serviceName[len(p.serviceName)-1] == '/' {
-		p.serviceName = p.serviceName[:len(p.serviceName)-1]
+	if len(p.serviceName) != 0 {
+		if p.serviceName[len(p.serviceName)-1] == '/' {
+			p.serviceName = p.serviceName[:len(p.serviceName)-1]
+		}
 	}
 	return fmt.Sprintf("http://%s/api/predict/%s", endName, p.serviceName)
 }
@@ -152,10 +153,6 @@ func (p *PredictClient) predict(rawData []byte) []byte {
 			}
 			panic(resp.Status)
 		}
-		// if resp.StatusCode != 200 {
-		// 	fmt.Println(resp.Body)
-		// 	panic(resp.Body)
-		// }
 		body, err := ioutil.ReadAll(resp.Body)
 		if err != nil || resp.StatusCode != 200 {
 			fmt.Println(string(body))
@@ -164,6 +161,12 @@ func (p *PredictClient) predict(rawData []byte) []byte {
 		return body
 	}
 	return []byte{}
+}
+
+// StringPredict function send input data and return predicted result
+func (p *PredictClient) StringPredict(str string) string {
+	body := p.predict([]byte(str))
+	return string(body)
 }
 
 // TorchPredict function send input data and return PyTorch predicted result
@@ -182,8 +185,8 @@ func (p *PredictClient) TorchPredict(request TorchRequest) TorchResponse {
 	return *rsp
 }
 
-// TfPredict function send input data and return TensorFlow predicted result
-func (p *PredictClient) TfPredict(request TfRequest) TfResponse {
+// TFPredict function send input data and return TensorFlow predicted result
+func (p *PredictClient) TFPredict(request TFRequest) TFResponse {
 	reqdata, err := proto.Marshal(&request.RequestData)
 	if err != nil {
 		fmt.Println("Marshal error: ", err)
@@ -193,7 +196,7 @@ func (p *PredictClient) TfPredict(request TfRequest) TfResponse {
 	body := p.predict(reqdata)
 	bd := &tf_predict_protos.PredictResponse{}
 	proto.Unmarshal(body, bd)
-	rsp := &TfResponse{*bd}
+	rsp := &TFResponse{*bd}
 
 	return *rsp
 }

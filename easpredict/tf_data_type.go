@@ -1,13 +1,11 @@
-package easprediction
+package easpredict
 
-import (
-	"./tf_predict_protos"
-)
+import "eas-golang-sdk/easpredict/tf_predict_protos"
 
 // type tf_predict_protos.ArrayDataType tf_predict_protos.ArrayDataType
 
+// TfType_DT_INVALID and listed types use ALL_CAPS names here to consist with other language's sdk.
 const (
-	// TfType_DT_INVALID and listed types use ALL_CAPS names here to consist with other language's sdk.
 	TfType_DT_FLOAT  tf_predict_protos.ArrayDataType = tf_predict_protos.ArrayDataType_DT_FLOAT
 	TfType_DT_DOUBLE tf_predict_protos.ArrayDataType = tf_predict_protos.ArrayDataType_DT_DOUBLE
 	TfType_DT_INT32  tf_predict_protos.ArrayDataType = tf_predict_protos.ArrayDataType_DT_INT32
