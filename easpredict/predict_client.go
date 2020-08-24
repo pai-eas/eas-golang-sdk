@@ -2,6 +2,7 @@ package easpredict
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"net/http"
@@ -61,7 +62,6 @@ func (p *PredictClient) Init() {
 		p.cacheSrvEndPoint = *newCacheServerEndpoint(p.endpointName, p.serviceName)
 	} else {
 		defer fmt.Println("Code: 500, Message: Unsupported endpoint type: ", p.endpointType)
-		panic(fmt.Errorf("Code: 500, Message: Unsupported endpoint type: %s", p.endpointType))
 	}
 	go p.syncHandler()
 }
@@ -131,7 +131,7 @@ func (p *PredictClient) buildURI() string {
 }
 
 // predict function posts inputs rawData to server and get response as []byte{}
-func (p *PredictClient) predict(rawData []byte) []byte {
+func (p *PredictClient) predict(rawData []byte) ([]byte, error) {
 	url := p.buildURI()
 	req, _ := http.NewRequest("POST", url, bytes.NewReader(rawData))
 	req.Header.Set("Content-Type", "application/octet-stream")
@@ -142,61 +142,59 @@ func (p *PredictClient) predict(rawData []byte) []byte {
 		resp, err := p.client.Do(req)
 		if err != nil {
 			if i == p.retryCount-1 {
-				panic(err)
+				fmt.Println("request error:", err)
+				return nil, err
 			}
 			continue
 		}
 		defer resp.Body.Close()
-		if resp.StatusCode == 500 {
+		body, err := ioutil.ReadAll(resp.Body)
+		if err != nil || resp.StatusCode != 200 {
 			if i != p.retryCount-1 {
 				continue
 			}
-			panic(resp.Status)
+			fmt.Println("request error:", resp.Status)
+			// fmt.Println(string(body))
+			fmt.Println(err)
+			return nil, errors.New(resp.Status)
 		}
-		body, err := ioutil.ReadAll(resp.Body)
-		if err != nil || resp.StatusCode != 200 {
-			fmt.Println(string(body))
-			panic(err)
-		}
-		return body
+		return body, nil
 	}
-	return []byte{}
+	return []byte{}, nil
 }
 
 // StringPredict function send input data and return predicted result
-func (p *PredictClient) StringPredict(str string) string {
-	body := p.predict([]byte(str))
-	return string(body)
+func (p *PredictClient) StringPredict(str string) (string, error) {
+	body, err := p.predict([]byte(str))
+	return string(body), err
 }
 
 // TorchPredict function send input data and return PyTorch predicted result
-func (p *PredictClient) TorchPredict(request TorchRequest) TorchResponse {
+func (p *PredictClient) TorchPredict(request TorchRequest) (TorchResponse, error) {
 	reqdata, err := proto.Marshal(&request.RequestData)
 	if err != nil {
 		fmt.Println("Marshal error: ", err)
-		panic(err)
 	}
 
-	body := p.predict(reqdata)
+	body, err := p.predict(reqdata)
 	bd := &torch_predict_protos.PredictResponse{}
 	proto.Unmarshal(body, bd)
 	rsp := &TorchResponse{*bd}
 
-	return *rsp
+	return *rsp, err
 }
 
 // TFPredict function send input data and return TensorFlow predicted result
-func (p *PredictClient) TFPredict(request TFRequest) TFResponse {
+func (p *PredictClient) TFPredict(request TFRequest) (TFResponse, error) {
 	reqdata, err := proto.Marshal(&request.RequestData)
 	if err != nil {
 		fmt.Println("Marshal error: ", err)
-		panic(err)
 	}
 
-	body := p.predict(reqdata)
+	body, err := p.predict(reqdata)
 	bd := &tf_predict_protos.PredictResponse{}
 	proto.Unmarshal(body, bd)
 	rsp := &TFResponse{*bd}
 
-	return *rsp
+	return *rsp, err
 }

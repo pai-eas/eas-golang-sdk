@@ -53,8 +53,11 @@ func main() {
 	client.Init()
 	req := "test string"
 	for i := 0; i < 10; i++ {
-		go fmt.Println(client.StringPredict(req))
-		fmt.Print(i)
+		resp, err := client.StringPredict(req)
+		if len(resp) == 0 || err != nil { // error handling
+			fmt.Println(err)
+		}
+		fmt.Println(resp)
 	}
 }
 ```
@@ -85,7 +88,11 @@ func main() {
 
 	st := time.Now()
 	for i := 0; i < 10; i++ {
-		resp := cli.TFPredict(tfreq)
+		resp, err := cli.TFPredict(tfreq)
+		if err != nil { // error handling
+			fmt.Println(err)
+			// ...
+		}
         fmt.Println(resp.GetTensorShape("scores"), resp.GetFloatVal("scores"))
 	}
 
@@ -120,7 +127,11 @@ func main() {
 	re.AddFetch(0)
 	st := time.Now()
 	for i := 0; i < 10; i++ {
-		resp := cli.TorchPredict(re)
+		resp, err := cli.TorchPredict(re)
+		if err != nil { // error handling
+			fmt.Println(err)
+			// ...
+		}
 		fmt.Println(resp.GetTensorShape(0), resp.GetFloatVal(0))
 	}
 	fmt.Println("average response time : ", time.Since(st)/10)

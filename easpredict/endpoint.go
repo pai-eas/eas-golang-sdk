@@ -171,20 +171,17 @@ func (v *vipServerEndpoint) getServer() (string, error) {
 	vipserend := "http://jmenv.tbsite.net:8080/vipserver/serverlist"
 	req, _ := http.NewRequest("GET", vipserend, nil)
 	resp, err := v.client.Do(req)
-	if err != nil {
-		panic(err)
-	} else if resp.StatusCode != 200 {
+	if resp.StatusCode != 200 || err != nil {
 		return resp.Status, err
 	}
 	defer resp.Body.Close()
 	body, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		fmt.Println("sync service endpoints error: ", err)
-		panic(err)
+		fmt.Println("sync service endpoints error: ", resp.StatusCode, err)
+		return resp.Status, err
 	}
 	serverList := strings.Split(strings.Trim(string(body[:]), " "), "\n")
 	rand.Seed(time.Now().UTC().UnixNano())
-	// fmt.Println(serverList[rand.Intn(len(serverList)-1)])
 	return serverList[rand.Intn(len(serverList)-1)], nil
 }
 
@@ -201,7 +198,6 @@ func (v *vipServerEndpoint) sync() {
 	req, _ := http.NewRequest("GET", url, nil)
 	resp, err := v.client.Do(req)
 	if err != nil {
-		// panic(err)
 		fmt.Println(err)
 		return
 	}
