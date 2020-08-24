@@ -1,6 +1,6 @@
 EAS Golang SDK
 
-总体参考了Python和Java SDK的设计和实现，定义predict_client做为请求客户端，内部方法实现了发送http请求，对于vipserver和direct的实现，在endpoint中定义相关类型，也参考了python的实现，wrr.go实现了roud robin算法，但由于权限问题未进行测试。
+总体参考了Python和Java SDK的设计和实现，定义predict_client做为请求客户端，内部方法实现了发送http请求，对于vipserver和direct的实现，在endpoint中定义相关类型，也参考了python的实现，wrr.go实现了roud robin算法。
 
 对pytorch和TensorFlow请求的格式进行了包装，并按照相同风格定义方法，对直接请求的情况已跑通。
 
@@ -44,7 +44,7 @@ import (
 	"testing"
 	"time"
 
-	"./easpredict"
+	"eas-golang-sdk/easpredict"
 )
 
 func main() {
@@ -72,7 +72,7 @@ import (
 	"testing"
 	"time"
 
-	"./easpredict"
+	"eas-golang-sdk/easpredict"
 )
 
 func main() {
@@ -112,7 +112,7 @@ import (
 	"testing"
 	"time"
 
-	"easpredict/easpredict"
+	"eas-golang-sdk/easpredict"
 )
 
 func main() {
@@ -137,6 +137,3 @@ func main() {
 	fmt.Println("average response time : ", time.Since(st)/10)
 }
 ```
-
-## TODO: 测试 VIPSERVER 和 DIRECT 直连方式
- wrr算法测试了几个手动构造的样例ok，但请求serverlist和直连方式预测由于权限问题尚未测试。

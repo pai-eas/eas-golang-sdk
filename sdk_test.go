@@ -9,14 +9,22 @@ import (
 	"time"
 )
 
-func TestString(t *testing.T) {
-	client := easpredict.NewPredictClient("eas-shanghai.alibaba-inc.com", "randsleep_multi_instance")
-	client.SetToken("MmNiYzNlYTU4NDU3YmI2NzgyMjhiZTI3YmExZjA0YTYyYzg5ZmI0MQ==")
+func TestStringDIRECT(t *testing.T) {
+
+	// client := easpredict.NewPredictClient("eas-shanghai.alibaba-inc.com", "randsleep_multi_instance")
+	client := easpredict.NewPredictClient("eas-shanghai.alibaba-inc.com", "proxyed")
+	// client.SetToken("MmNiYzNlYTU4NDU3YmI2NzgyMjhiZTI3YmExZjA0YTYyYzg5ZmI0MQ==")
+	// client := easpredict.NewPredictClient("proxyed.shanghai.eas.vipserver", "")
+
+	client.SetToken("1111111111")
+	client.SetEndpointType("DIRECT")
 	client.Init()
-	req := "test string"
-	for i := 0; i < 100; i++ {
-		go fmt.Println(client.StringPredict(req))
+	req := "random string"
+	for i := 0; i < 100000; i++ {
+		// go fmt.Println(client.StringPredict(req))
+		resp, err := client.StringPredict(req)
 		fmt.Print(i)
+		fmt.Println(resp, "er", err)
 	}
 }
 
@@ -34,7 +42,7 @@ func TestTorch(t *testing.T) {
 	re.AddFetch(0)
 	st := time.Now()
 	for i := 0; i < 10; i++ {
-		resp := cli.TorchPredict(re)
+		resp, _ := cli.TorchPredict(re)
 		if resp.GetTensorShape(0) != nil {
 			t.Log("predict success: ", resp.GetTensorShape(0))
 		}
@@ -74,38 +82,14 @@ func TestTF(t *testing.T) {
 	// tfreq.AddFetch("sorted_labels")
 
 	st := time.Now()
-	for i := 0; i < 100; i++ {
-		resp := cli.TFPredict(tfreq)
+	for i := 0; i < 1; i++ {
+		resp, err := cli.TFPredict(tfreq)
 		// fmt.Println(resp.GetTensorShape("sorted_probs"), resp.GetFloatVal("sorted_probs"))
-		fmt.Println(resp.GetFloatVal("sorted_probs"))
+		fmt.Println(resp.GetFloatVal("sorted_probs"), err)
 	}
 
 	fmt.Println("average response time : ", time.Since(st)/10)
 }
-
-// // TestTorch tests pytorch request and response
-// func TestTorchVIP(t *testing.T) {
-
-// 	// cli := easpredict.NewPredictClient("eas-shanghai.alibaba-inc.com", "pytorch-wl-gosdktest")
-// 	cli := easpredict.NewPredictClient("eas-shanghai.alibaba-inc.com", "pytorch_gpu_wl")
-// 	cli.SetEndpointType("VIPSERVER")
-// 	// cli.SetEndpointType("DIRECT")
-// 	cli.Init()
-// 	re := easpredict.TorchRequest{}
-
-// 	re.AddFeedFloat32(0, easpredict.TorchType_DT_FLOAT, []int64{1, 3, 224, 224}, make([]float32, 150528))
-
-// 	for i := 0; i < 10; i++ {
-
-// 		resp := cli.TorchPredict(re)
-// 		if resp.GetTensorShape(0) != nil {
-// 			t.Log("get tensor 0: ", resp.GetTensorShape(0))
-// 		}
-// 		// fmt.Println(resp, err)
-// 		// fmt.Println(resp.GetFloatVal(0))
-// 		fmt.Println(resp.GetTensorShape(0))
-// 	}
-// }
 
 func main() {
 	// testTorch()
