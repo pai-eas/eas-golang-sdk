@@ -9,7 +9,8 @@ EAS Golang SDK
 
 |类|主要接口|描述|
 |-----|------|------|
-|PredictClient|PredictClient(endpoint, service_name)|PredictClient类构造器，endpoint是服务端的endpoint地址，对于普通服务设置为默认网关endpoint，如eas-shanghai-intranet.alibaba-inc.com；service_name为服务名字；两个参数不可为空。|
+|PredictClient|NewPredictClient(endpoint, service_name)|PredictClient类构造器，endpoint是服务端的endpoint地址，对于普通服务设置为默认网关endpoint，如eas-shanghai-intranet.alibaba-inc.com；service_name为服务名字；两个参数不可为空。|
+||NewPredictClientWithConns(endpointName string, serviceName string, maxIdleConns int, maxIdleConnsPerhost int)|带有连接池配置的构造器，maxIdleConns是连接池最大连接数，maxIdleConnsPerhost是每个host的最大连接数|
 ||SetEndpoint(endpointName)|设置服务的endpoint，endpoint的说明见构造函数|
 ||SetServiceName(serviceName)|设置请求的服务名字|
 ||SetEndpointType(endpointType)|设置服务端的网关类型，支持默认网关("DEFAULT"或不设置），"VIPSERVER"，"DIRECT"，默认值为空|

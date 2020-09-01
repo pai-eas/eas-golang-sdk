@@ -11,7 +11,13 @@ import (
 	"time"
 )
 
-type endpoint struct {
+type endpointIF interface {
+	sync()
+	Get() string
+	TryNext(addr string) string
+}
+
+type endpointVar struct {
 	rLock     sync.Mutex
 	wLock     sync.Mutex
 	numR      int
@@ -19,10 +25,10 @@ type endpoint struct {
 	scheduler wrrscheduler
 }
 
-func newEndpoint() *endpoint {
+func newEndpoint() *endpointVar {
 	sc := &wrrscheduler{inited: false}
 	ep := make(map[string]int)
-	return &endpoint{
+	return &endpointVar{
 		rLock:     sync.Mutex{},
 		wLock:     sync.Mutex{},
 		numR:      0,
@@ -31,7 +37,7 @@ func newEndpoint() *endpoint {
 	}
 }
 
-func (ep *endpoint) rLockLock() {
+func (ep *endpointVar) rLockLock() {
 	ep.rLock.Lock()
 	ep.numR++
 	if ep.numR == 1 {
@@ -40,7 +46,7 @@ func (ep *endpoint) rLockLock() {
 	ep.rLock.Unlock()
 }
 
-func (ep *endpoint) rLockUnlock() {
+func (ep *endpointVar) rLockUnlock() {
 	ep.rLock.Lock()
 	ep.numR--
 	if ep.numR == 0 {
@@ -49,8 +55,8 @@ func (ep *endpoint) rLockUnlock() {
 	ep.rLock.Unlock()
 }
 
-// setEndpoints for endpoint
-func (ep *endpoint) setEndpoints(endpoints map[string]int) {
+// setEndpoints for endpointVar
+func (ep *endpointVar) setEndpoints(endpoints map[string]int) {
 	ep.wLock.Lock()
 	ep.endPoints = endpoints
 	ep.scheduler = wrrScheduler(ep.endPoints)
@@ -58,7 +64,7 @@ func (ep *endpoint) setEndpoints(endpoints map[string]int) {
 }
 
 // Get ip address and port wrr returned
-func (ep *endpoint) Get() string {
+func (ep *endpointVar) Get() string {
 	for true {
 		if ep.scheduler.inited {
 			break
@@ -72,8 +78,19 @@ func (ep *endpoint) Get() string {
 	return addr
 }
 
+func (ep *endpointVar) TryNext(addr string) string {
+	if len(ep.endPoints) > 1 {
+		newaddr := ep.Get()
+		for addr == newaddr {
+			newaddr = ep.Get()
+		}
+		return newaddr
+	}
+	return ep.Get()
+}
+
 type cacheServerEndpoint struct {
-	endpoint
+	endpointVar
 	domain      string
 	serviceName string
 	// endPoints   map[string]int
@@ -119,7 +136,6 @@ func (c *cacheServerEndpoint) sync() {
 }
 
 type gatewayEndpoint struct {
-	endpoint
 	domain string
 }
 
@@ -136,17 +152,24 @@ func newGatewayEndpoint(domain string) *gatewayEndpoint {
 	}
 }
 
-// func (g *gatewayEndpoint) setEndpoints(endpoints map[string]int) {
-// 	fmt.Println("sync nothing for gateway endpoint")
-// }
-
 // rewrite Get() function
 func (g *gatewayEndpoint) Get() string {
 	return g.domain
 }
 
+// rewrite TryNext() function
+func (g *gatewayEndpoint) TryNext(addr string) string {
+	return g.domain
+}
+
+// sync for the interface
+func (g *gatewayEndpoint) sync() {
+	// do nothing
+	return
+}
+
 type vipServerEndpoint struct {
-	endpoint
+	endpointVar
 	domain string
 	client http.Client
 }
@@ -160,9 +183,9 @@ func newVipServerEndpoint(domain string) *vipServerEndpoint {
 	}
 
 	return &vipServerEndpoint{
-		endpoint: *newEndpoint(),
-		domain:   domain,
-		client:   http.Client{},
+		endpointVar: *newEndpoint(),
+		domain:      domain,
+		client:      http.Client{},
 	}
 }
 
