@@ -151,7 +151,10 @@ func (p *PredictClient) tryNext(url string) string {
 func (p *PredictClient) predict(rawData []byte) ([]byte, error) {
 	url := p.buildURI()
 	for i := 0; i < p.retryCount; i++ {
-		req, _ := http.NewRequest("POST", p.tryNext(url), bytes.NewReader(rawData))
+		if i != 0 {
+			url = p.tryNext(url)
+		}
+		req, _ := http.NewRequest("POST", url, bytes.NewReader(rawData))
 		req.Header.Set("Content-Type", "application/octet-stream")
 		if p.token != "" {
 			req.Header.Set("Authorization", p.token)
