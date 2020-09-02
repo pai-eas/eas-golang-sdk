@@ -22,7 +22,6 @@ type PredictClient struct {
 	maxConnectionCount int
 	token              string
 	endpoint           endpointIF
-	timeout            time.Duration
 	endpointType       string
 	endpointName       string
 	serviceName        string
@@ -35,34 +34,27 @@ func NewPredictClient(endpointName string, serviceName string) *PredictClient {
 	return &PredictClient{
 		endpointName: endpointName,
 		serviceName:  serviceName,
-		// token:       token,
-		retryCount: 5,
-		timeout:    5000 * time.Millisecond,
+		retryCount:   5,
 		client: http.Client{
 			Timeout: 5000 * time.Millisecond,
 			Transport: &http.Transport{
-				MaxIdleConns:        1000,
-				MaxIdleConnsPerHost: 50,
-				// ExpectContinueTimeout: 10 * time.Millisecond,
+				MaxConnsPerHost: 100,
 			},
 		},
 	}
 }
 
 // NewPredictClientWithConns returns an instance of PredictClient
-func NewPredictClientWithConns(endpointName string, serviceName string, maxIdleConns int, maxIdleConnsPerhost int) *PredictClient {
+func NewPredictClientWithConns(endpointName string, serviceName string, maxConnsPerhost int) *PredictClient {
 	return &PredictClient{
 		endpointName: endpointName,
 		serviceName:  serviceName,
 		// token:       token,
 		retryCount: 5,
-		timeout:    5000 * time.Millisecond,
 		client: http.Client{
 			Timeout: 5000 * time.Millisecond,
 			Transport: &http.Transport{
-				MaxIdleConns:        maxIdleConns,
-				MaxIdleConnsPerHost: maxIdleConnsPerhost,
-				// ExpectContinueTimeout: 10 * time.Millisecond,
+				MaxConnsPerHost: maxConnsPerhost,
 			},
 		},
 	}
@@ -115,8 +107,7 @@ func (p *PredictClient) SetRetryCount(cnt int) {
 
 // SetTimeout for client
 func (p *PredictClient) SetTimeout(timeout int) {
-	p.timeout = time.Duration(timeout) * time.Millisecond
-	p.client.Timeout = p.timeout
+	p.client.Timeout = time.Duration(timeout) * time.Millisecond
 }
 
 // SetServiceName for client
