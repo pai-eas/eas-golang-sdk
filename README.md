@@ -9,7 +9,8 @@ EAS Golang SDK
 
 |类|主要接口|描述|
 |-----|------|------|
-|PredictClient|PredictClient(endpoint, service_name)|PredictClient类构造器，endpoint是服务端的endpoint地址，对于普通服务设置为默认网关endpoint，如eas-shanghai-intranet.alibaba-inc.com；service_name为服务名字；两个参数不可为空。|
+|PredictClient|NewPredictClient(endpoint, service_name)|PredictClient类构造器，endpoint是服务端的endpoint地址，对于普通服务设置为默认网关endpoint，如eas-shanghai-intranet.alibaba-inc.com；service_name为服务名字；两个参数不可为空。|
+||NewPredictClientWithConns(endpointName string, serviceName string, maxConnsPerhost int)|带有连接池配置的构造器，maxConnsPerhost是连接池中对每个host的最大连接数|
 ||SetEndpoint(endpointName)|设置服务的endpoint，endpoint的说明见构造函数|
 ||SetServiceName(serviceName)|设置请求的服务名字|
 ||SetEndpointType(endpointType)|设置服务端的网关类型，支持默认网关("DEFAULT"或不设置），"VIPSERVER"，"DIRECT"，默认值为空|
@@ -48,8 +49,8 @@ import (
 )
 
 func main() {
-	client := easpredict.NewPredictClient("eas-shanghai.alibaba-inc.com", "randsleep_multi_instance")
-	client.SetToken("MmNiYzNlYTU4NDU3YmI2NzgyMjhiZTI3YmExZjA0YTYyYzg5ZmI0MQ==")
+	client := easpredict.NewPredictClient("endpoind", "service_name")
+	client.SetToken("token==")
 	client.Init()
 	req := "test string"
 	for i := 0; i < 10; i++ {
@@ -76,7 +77,7 @@ import (
 )
 
 func main() {
-	cli := easpredict.NewPredictClient("eas-shanghai.alibaba-inc.com/", "tf_gosdk_test")
+	cli := easpredict.NewPredictClient("endpoint", "service_name")
 	// cli.SetToken("BTX3ZLQ5lzlkMzYnnMo0PzV5Yzc0YzB9M3ZhNzM5B2iwUjU4Y2MwXA==")
 	// cli.SetTimeout(1000)
 	cli.Init()
@@ -116,8 +117,8 @@ import (
 )
 
 func main() {
-	// cli := easpredict.NewPredictClient("eas-shanghai.alibaba-inc.com", "pytorch-wl-gosdktest")
-	cli := easpredict.NewPredictClient("eas-shanghai.alibaba-inc.com", "pytorch_gpu_wl")
+
+	cli := easpredict.NewPredictClient("endpoint ", "service_name")
 
 	// cli.SetTimeout(00)
 	// cli.SetEndpointType("DIRECT")

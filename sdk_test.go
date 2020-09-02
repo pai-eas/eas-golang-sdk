@@ -9,32 +9,30 @@ import (
 	"time"
 )
 
-func TestStringDIRECT(t *testing.T) {
+func TestString(t *testing.T) {
 
-	// client := easpredict.NewPredictClient("eas-shanghai.alibaba-inc.com", "randsleep_multi_instance")
-	client := easpredict.NewPredictClient("eas-shanghai.alibaba-inc.com", "proxyed")
-	// client.SetToken("MmNiYzNlYTU4NDU3YmI2NzgyMjhiZTI3YmExZjA0YTYyYzg5ZmI0MQ==")
-	// client := easpredict.NewPredictClient("proxyed.shanghai.eas.vipserver", "")
-
+	client := easpredict.NewPredictClientWithConns("proxyed.shanghai.eas.vipserver", "", 10)
 	client.SetToken("1111111111")
-	client.SetEndpointType("DIRECT")
+	// client.SetEndpointType("DIRECT")
+	client.SetEndpointType("VIPSERVER")
 	client.Init()
 	req := "random string"
-	for i := 0; i < 100000; i++ {
-		// go fmt.Println(client.StringPredict(req))
-		resp, err := client.StringPredict(req)
-		fmt.Print(i)
-		fmt.Println(resp, "er", err)
+	for i := 0; i < 1; i++ {
+		go func(i int) {
+			resp, err := client.StringPredict(req)
+			fmt.Print(i)
+			fmt.Println(resp, "er", err)
+		}(i)
 	}
+	time.Sleep(time.Duration(10) * time.Second)
 }
 
 // TestTorch tests pytorch request and response unit test
 func TestTorch(t *testing.T) {
 
-	// cli := easpredict.NewPredictClient("eas-shanghai.alibaba-inc.com", "pytorch-wl-gosdktest")
-	cli := easpredict.NewPredictClient("eas-shanghai.alibaba-inc.com", "pytorch_gpu_wl")
+	cli := easpredict.NewPredictClient("endpoint", "service_name")
 
-	// cli.SetTimeout(800)
+	cli.SetTimeout(800)
 	// cli.SetEndpointType("DIRECT")
 	cli.Init()
 	re := easpredict.TorchRequest{}
@@ -54,29 +52,16 @@ func TestTorch(t *testing.T) {
 }
 
 func TestTF(t *testing.T) {
-	// cli := easpredict.NewPredictClient("eas-shanghai.alibaba-inc.com/", "tf_gosdk_test")
-	// cli.SetToken("BTX3ZLQ5lzlkMzYnnMo0PzV5Yzc0YzB9M3ZhNzM5B2iwUjU4Y2MwXA==")
-
-	cli := easpredict.NewPredictClient("eas-shanghai.alibaba-inc.com", "warm_up_test")
-	cli.SetToken("NDBiZGEyZDBjMzVlNjM3NDMxYTc1NGNmZGFlMzMzMjBmMmY2MzE3ZQ==")
+	cli := easpredict.NewPredictClient("endpoint", "service_name")
+	cli.SetToken("token==")
 	// cli.SetTimeout(1000)
 	cli.Init()
 
 	tfreq := easpredict.TFRequest{}
-	// tfreq.SetSignatureName("predict_images")
-	// tfreq.AddFeedFloat32("images", easpredict.TfType_DT_FLOAT, []int64{1, 784}, make([]float32, 784))
-	// tfreq.AddFetch("scores")
-	// fmt.Println(tfreq)
 
-	// ls := list.New()
-	// ls.PushBack("abcdef")
 	tfreq.SetSignatureName("serving_default")
 	tfreq.AddFeedString("input_holder", easpredict.TfType_DT_STRING, []int64{1}, [][]byte{[]byte("abcdef")})
-	// th := list.New()
-	// th.PushBack(0.9)
 	tfreq.AddFeedFloat32("threshold", easpredict.TfType_DT_FLOAT, []int64{}, []float32{0.9})
-	// model_name := list.New()
-	// model_name.PushBack("PACKAGE_640")
 	tfreq.AddFeedString("model_id", easpredict.TfType_DT_STRING, []int64{}, [][]byte{[]byte("PACKAGE_640")})
 	// tfreq.AddFetch("sorted_probs")
 	// tfreq.AddFetch("sorted_labels")

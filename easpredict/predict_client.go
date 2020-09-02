@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"strings"
 	"time"
 
 	"eas-golang-sdk/easpredict/tf_predict_protos"
@@ -20,17 +21,12 @@ type PredictClient struct {
 	retryCount         int
 	maxConnectionCount int
 	token              string
-	// endpoint           interface{}
-	vipSrvEndPoint   vipServerEndpoint
-	gtwayEndPoint    gatewayEndpoint
-	cacheSrvEndPoint cacheServerEndpoint
-	timeout          time.Duration
-	endpointType     string
-	endpointName     string
-	// modelName          string
-	serviceName string
-	stop        bool
-	client      http.Client
+	endpoint           endpointIF
+	endpointType       string
+	endpointName       string
+	serviceName        string
+	stop               bool
+	client             http.Client
 }
 
 // NewPredictClient returns an instance of PredictClient
@@ -38,15 +34,27 @@ func NewPredictClient(endpointName string, serviceName string) *PredictClient {
 	return &PredictClient{
 		endpointName: endpointName,
 		serviceName:  serviceName,
-		// token:       token,
-		retryCount: 5,
-		timeout:    5000 * time.Millisecond,
+		retryCount:   5,
 		client: http.Client{
 			Timeout: 5000 * time.Millisecond,
 			Transport: &http.Transport{
-				MaxIdleConns:        1000,
-				MaxIdleConnsPerHost: 100,
-				// ExpectContinueTimeout: 10 * time.Millisecond,
+				MaxConnsPerHost: 100,
+			},
+		},
+	}
+}
+
+// NewPredictClientWithConns returns an instance of PredictClient
+func NewPredictClientWithConns(endpointName string, serviceName string, maxConnsPerhost int) *PredictClient {
+	return &PredictClient{
+		endpointName: endpointName,
+		serviceName:  serviceName,
+		// token:       token,
+		retryCount: 5,
+		client: http.Client{
+			Timeout: 5000 * time.Millisecond,
+			Transport: &http.Transport{
+				MaxConnsPerHost: maxConnsPerhost,
 			},
 		},
 	}
@@ -55,11 +63,11 @@ func NewPredictClient(endpointName string, serviceName string) *PredictClient {
 // Init initialize client
 func (p *PredictClient) Init() {
 	if p.endpointType == "" || p.endpointType == "DEFAULT" {
-		p.gtwayEndPoint = *newGatewayEndpoint(p.endpointName)
+		p.endpoint = newGatewayEndpoint(p.endpointName)
 	} else if p.endpointType == "VIPSERVER" {
-		p.vipSrvEndPoint = *newVipServerEndpoint(p.endpointName)
+		p.endpoint = newVipServerEndpoint(p.endpointName)
 	} else if p.endpointType == "DIRECT" {
-		p.cacheSrvEndPoint = *newCacheServerEndpoint(p.endpointName, p.serviceName)
+		p.endpoint = newCacheServerEndpoint(p.endpointName, p.serviceName)
 	} else {
 		defer fmt.Println("Code: 500, Message: Unsupported endpoint type: ", p.endpointType)
 	}
@@ -72,11 +80,7 @@ func (p *PredictClient) syncHandler() {
 		if p.stop {
 			break
 		}
-		if p.endpointType == "VIPSERVER" {
-			p.vipSrvEndPoint.sync()
-		} else if p.endpointType == "DIRECT" {
-			p.cacheSrvEndPoint.sync()
-		}
+		p.endpoint.sync()
 		time.Sleep(3 * time.Second)
 	}
 }
@@ -103,8 +107,7 @@ func (p *PredictClient) SetRetryCount(cnt int) {
 
 // SetTimeout for client
 func (p *PredictClient) SetTimeout(timeout int) {
-	p.timeout = time.Duration(timeout) * time.Millisecond
-	p.client.Timeout = p.timeout
+	p.client.Timeout = time.Duration(timeout) * time.Millisecond
 }
 
 // SetServiceName for client
@@ -115,13 +118,18 @@ func (p *PredictClient) SetServiceName(serviceName string) {
 // buildURI returns an url for request
 func (p *PredictClient) buildURI() string {
 	endName := p.endpointName
-	if p.endpointType == "" || p.endpointType == "DEFAULT" {
-		endName = p.gtwayEndPoint.Get()
-	} else if p.endpointType == "VIPSERVER" {
-		endName = p.vipSrvEndPoint.Get()
-	} else if p.endpointType == "DIRECT" {
-		endName = p.cacheSrvEndPoint.Get()
+	endName = p.endpoint.Get()
+	if len(p.serviceName) != 0 {
+		if p.serviceName[len(p.serviceName)-1] == '/' {
+			p.serviceName = p.serviceName[:len(p.serviceName)-1]
+		}
 	}
+	return fmt.Sprintf("http://%s/api/predict/%s", endName, p.serviceName)
+}
+
+func (p *PredictClient) tryNext(url string) string {
+	addr := url[strings.Index(url, "http://")+len("http://") : strings.Index(url, "/api/predict")]
+	endName := p.endpoint.TryNext(addr)
 	if len(p.serviceName) != 0 {
 		if p.serviceName[len(p.serviceName)-1] == '/' {
 			p.serviceName = p.serviceName[:len(p.serviceName)-1]
@@ -133,12 +141,15 @@ func (p *PredictClient) buildURI() string {
 // predict function posts inputs rawData to server and get response as []byte{}
 func (p *PredictClient) predict(rawData []byte) ([]byte, error) {
 	url := p.buildURI()
-	req, _ := http.NewRequest("POST", url, bytes.NewReader(rawData))
-	req.Header.Set("Content-Type", "application/octet-stream")
-	if p.token != "" {
-		req.Header.Set("Authorization", p.token)
-	}
 	for i := 0; i < p.retryCount; i++ {
+		if i != 0 {
+			url = p.tryNext(url)
+		}
+		req, _ := http.NewRequest("POST", url, bytes.NewReader(rawData))
+		req.Header.Set("Content-Type", "application/octet-stream")
+		if p.token != "" {
+			req.Header.Set("Authorization", p.token)
+		}
 		resp, err := p.client.Do(req)
 		if err != nil {
 			if i == p.retryCount-1 {
@@ -153,10 +164,9 @@ func (p *PredictClient) predict(rawData []byte) ([]byte, error) {
 			if i != p.retryCount-1 {
 				continue
 			}
-			fmt.Println("request error:", resp.Status)
-			// fmt.Println(string(body))
+			fmt.Println("request error:", resp.Status, string(body))
 			fmt.Println(err)
-			return nil, errors.New(resp.Status)
+			return body, errors.New(resp.Status)
 		}
 		return body, nil
 	}
