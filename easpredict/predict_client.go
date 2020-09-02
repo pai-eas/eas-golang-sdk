@@ -49,8 +49,7 @@ func NewPredictClientWithConns(endpointName string, serviceName string, maxConns
 	return &PredictClient{
 		endpointName: endpointName,
 		serviceName:  serviceName,
-		// token:       token,
-		retryCount: 5,
+		retryCount:   5,
 		client: http.Client{
 			Timeout: 5000 * time.Millisecond,
 			Transport: &http.Transport{
