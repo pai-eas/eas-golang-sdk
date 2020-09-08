@@ -9,8 +9,8 @@ import (
 
 func TestString(t *testing.T) {
 
-	client := NewPredictClientWithConns("proxyed.shanghai.eas.vipserver", "", 10)
-	client.SetToken("1111111111")
+	client := NewPredictClientWithConns("endpoint", "service_name", 10)
+	client.SetToken("token==")
 	// client.SetEndpointType("DIRECT")
 	client.SetEndpointType("VIPSERVER")
 	client.Init()
@@ -28,11 +28,11 @@ func TestString(t *testing.T) {
 // TestTorch tests pytorch request and response unit test
 func TestTorch(t *testing.T) {
 
-	cli := NewPredictClient("eas-shanghai.alibaba-inc.com/api/predict/test624_cpu", "")
+	cli := NewPredictClient("endpoint", "service_name")
 
 	cli.SetTimeout(80)
 	// cli.SetEndpointType("DIRECT")
-	cli.SetToken("ZTk1OThjM2YyNzkwNDZiZTI5YTNjMmY5NzYxNmQxZTQ3MjUyYzA4Zg==")
+	cli.SetToken("token==")
 	cli.Init()
 	re := TorchRequest{}
 	re.AddFeedFloat32(0, TorchType_DT_FLOAT, []int64{1, 3, 224, 224}, make([]float32, 150528))
