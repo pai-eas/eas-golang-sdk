@@ -72,7 +72,7 @@ func main() {
 		fmt.Println(err)
 		// ...
 	}
-	fmt.Println(resp.(*StringResponse).str)
+	fmt.Println(resp.(*easpredict.StringResponse).str)
 
 }
 ```
@@ -119,7 +119,7 @@ func main() {
 		fmt.Println("err", err)
 		// ...
 	}
-	resp2, _ := resp.(*TFResponse)
+	resp2, _ := resp.(*easpredict.TFResponse)
 	fmt.Println(resp2.GetTensorShape("scores"), resp2.GetFloatVal("scores"))
 
 }
@@ -169,7 +169,7 @@ func main() {
 		fmt.Println("err", err)
 		// ...
 	}
-	resp2, _ := resp.(*TorchResponse)
+	resp2, _ := resp.(*easpredict.TorchResponse)
 	fmt.Println(resp2.GetTensorShape(0), resp2.GetFloatVal(0))
 }
 ```
