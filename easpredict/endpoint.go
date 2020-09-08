@@ -18,9 +18,7 @@ type endpointIF interface {
 }
 
 type endpointVar struct {
-	rLock     sync.Mutex
-	wLock     sync.Mutex
-	numR      int
+	lock      sync.RWMutex
 	endPoints map[string]int
 	scheduler wrrscheduler
 }
@@ -29,38 +27,18 @@ func newEndpoint() *endpointVar {
 	sc := &wrrscheduler{inited: false}
 	ep := make(map[string]int)
 	return &endpointVar{
-		rLock:     sync.Mutex{},
-		wLock:     sync.Mutex{},
-		numR:      0,
+		lock:      sync.RWMutex{},
 		endPoints: ep,
 		scheduler: *sc,
 	}
 }
 
-func (ep *endpointVar) rLockLock() {
-	ep.rLock.Lock()
-	ep.numR++
-	if ep.numR == 1 {
-		ep.wLock.Lock()
-	}
-	ep.rLock.Unlock()
-}
-
-func (ep *endpointVar) rLockUnlock() {
-	ep.rLock.Lock()
-	ep.numR--
-	if ep.numR == 0 {
-		ep.wLock.Unlock()
-	}
-	ep.rLock.Unlock()
-}
-
 // setEndpoints for endpointVar
 func (ep *endpointVar) setEndpoints(endpoints map[string]int) {
-	ep.wLock.Lock()
+	ep.lock.Lock()
 	ep.endPoints = endpoints
 	ep.scheduler = wrrScheduler(ep.endPoints)
-	ep.wLock.Unlock()
+	ep.lock.Unlock()
 }
 
 // Get ip address and port wrr returned
@@ -72,9 +50,9 @@ func (ep *endpointVar) Get() string {
 		time.Sleep(100 * time.Millisecond)
 	}
 
-	ep.rLockLock()
+	ep.lock.RLock()
 	addr := ep.scheduler.getNext()
-	ep.rLockUnlock()
+	ep.lock.RUnlock()
 	return addr
 }
 
@@ -93,8 +71,7 @@ type cacheServerEndpoint struct {
 	endpointVar
 	domain      string
 	serviceName string
-	// endPoints   map[string]int
-	client http.Client
+	client      http.Client
 }
 
 // newCacheServerEndpoint returns an instance of cacheServerEndpoint
@@ -164,7 +141,7 @@ func (g *gatewayEndpoint) TryNext(addr string) string {
 
 // sync for the interface
 func (g *gatewayEndpoint) sync() {
-	// do nothing
+	// do nothing for gatewayEndpoint
 	return
 }
 
@@ -228,7 +205,6 @@ func (v *vipServerEndpoint) sync() {
 	body, err := ioutil.ReadAll(resp.Body)
 	if err != nil || resp.StatusCode != 200 {
 		fmt.Printf("sync service endpoints error: %s, %s\n", body, err)
-		// fmt.Println(err)
 		return
 	}
 

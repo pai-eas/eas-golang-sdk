@@ -1,6 +1,10 @@
 package easpredict
 
-import "eas-golang-sdk/easpredict/tf_predict_protos"
+import (
+	"eas-golang-sdk/easpredict/tf_predict_protos"
+
+	"github.com/golang/protobuf/proto"
+)
 
 // TFRequest class for tensorflow data and requests
 type TFRequest struct {
@@ -107,6 +111,15 @@ func (tr *TFRequest) AddFetch(outName string) {
 	tr.RequestData.OutputFilter = append(tr.RequestData.OutputFilter, outName)
 }
 
+// ToString for interface
+func (tr TFRequest) ToString() (string, error) {
+	reqdata, err2 := proto.Marshal(&tr.RequestData)
+	if err2 != nil {
+		return "", NewPredictError(-1, err2.Error())
+	}
+	return string(reqdata), nil
+}
+
 // TFResponse class for Pytf predicted results
 type TFResponse struct {
 	Response tf_predict_protos.PredictResponse
@@ -146,4 +159,15 @@ func (tresp *TFResponse) GetBoolVal(outputName string) []bool {
 // GetStringVal returns []string slice as output data
 func (tresp *TFResponse) GetStringVal(outputName string) [][]byte {
 	return tresp.Response.Outputs[outputName].GetStringVal()
+}
+
+// Unmarshal for interface
+func (tresp *TFResponse) unmarshal(body []byte) error {
+	bd := &tf_predict_protos.PredictResponse{}
+	err := proto.Unmarshal(body, bd)
+	if err != nil {
+		return err
+	}
+	tresp.Response = *bd
+	return nil
 }

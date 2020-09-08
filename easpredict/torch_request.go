@@ -1,6 +1,10 @@
 package easpredict
 
-import "eas-golang-sdk/easpredict/torch_predict_protos"
+import (
+	"eas-golang-sdk/easpredict/torch_predict_protos"
+
+	"github.com/golang/protobuf/proto"
+)
 
 // TorchRequest class for PyTorch data and requests
 type TorchRequest struct {
@@ -72,6 +76,15 @@ func (tr *TorchRequest) AddFetch(outIndex int32) {
 	tr.RequestData.OutputFilter = append(tr.RequestData.OutputFilter, outIndex)
 }
 
+// ToString for interface
+func (tr TorchRequest) ToString() (string, error) {
+	reqdata, err2 := proto.Marshal(&tr.RequestData)
+	if err2 != nil {
+		return "", NewPredictError(-1, err2.Error())
+	}
+	return string(reqdata), nil
+}
+
 // TorchResponse class for PyTorch predicted results
 type TorchResponse struct {
 	Response torch_predict_protos.PredictResponse
@@ -101,4 +114,15 @@ func (tresp *TorchResponse) GetIntVal(outIndex int) []int32 {
 // GetInt64Val returns []int64 slice as output data
 func (tresp *TorchResponse) GetInt64Val(outIndex int) []int64 {
 	return tresp.Response.Outputs[outIndex].GetInt64Val()
+}
+
+// Unmarshal for interface
+func (tresp *TorchResponse) unmarshal(body []byte) error {
+	bd := &torch_predict_protos.PredictResponse{}
+	err := proto.Unmarshal(body, bd)
+	if err != nil {
+		return err
+	}
+	tresp.Response = *bd
+	return nil
 }

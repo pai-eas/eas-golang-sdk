@@ -1,9 +1,7 @@
-// package easpredict
-
-package main
+package easpredict
 
 import (
-	"eas-golang-sdk/easpredict"
+	// "eas-golang-sdk/easpredict"
 	"fmt"
 	"testing"
 	"time"
@@ -11,7 +9,7 @@ import (
 
 func TestString(t *testing.T) {
 
-	client := easpredict.NewPredictClientWithConns("proxyed.shanghai.eas.vipserver", "", 10)
+	client := NewPredictClientWithConns("proxyed.shanghai.eas.vipserver", "", 10)
 	client.SetToken("1111111111")
 	// client.SetEndpointType("DIRECT")
 	client.SetEndpointType("VIPSERVER")
@@ -30,39 +28,41 @@ func TestString(t *testing.T) {
 // TestTorch tests pytorch request and response unit test
 func TestTorch(t *testing.T) {
 
-	cli := easpredict.NewPredictClient("endpoint", "service_name")
+	cli := NewPredictClient("eas-shanghai.alibaba-inc.com/api/predict/test624_cpu", "")
 
-	cli.SetTimeout(800)
+	cli.SetTimeout(80)
 	// cli.SetEndpointType("DIRECT")
+	cli.SetToken("ZTk1OThjM2YyNzkwNDZiZTI5YTNjMmY5NzYxNmQxZTQ3MjUyYzA4Zg==")
 	cli.Init()
-	re := easpredict.TorchRequest{}
-	re.AddFeedFloat32(0, easpredict.TorchType_DT_FLOAT, []int64{1, 3, 224, 224}, make([]float32, 150528))
+	re := TorchRequest{}
+	re.AddFeedFloat32(0, TorchType_DT_FLOAT, []int64{1, 3, 224, 224}, make([]float32, 150528))
 	re.AddFetch(0)
 	st := time.Now()
 	for i := 0; i < 10; i++ {
-		resp, _ := cli.TorchPredict(re)
-		if resp.GetTensorShape(0) != nil {
-			t.Log("predict success: ", resp.GetTensorShape(0))
+		resp, err := cli.TorchPredict(re)
+		if err != nil {
+			fmt.Println("err", err)
 		}
-		// fmt.Println(resp, err)
-		// fmt.Println(resp.GetFloatVal(0))
+		// if resp.GetTensorShape(0) != nil {
+		// 	t.Log("predict success: ", resp.GetTensorShape(0))
+		// }
 		fmt.Println(resp.GetTensorShape(0), resp.GetFloatVal(0))
 	}
 	fmt.Println("average response time : ", time.Since(st)/10)
 }
 
 func TestTF(t *testing.T) {
-	cli := easpredict.NewPredictClient("endpoint", "service_name")
+	cli := NewPredictClient("endpoint", "service_name")
 	cli.SetToken("token==")
 	// cli.SetTimeout(1000)
 	cli.Init()
 
-	tfreq := easpredict.TFRequest{}
+	tfreq := TFRequest{}
 
 	tfreq.SetSignatureName("serving_default")
-	tfreq.AddFeedString("input_holder", easpredict.TfType_DT_STRING, []int64{1}, [][]byte{[]byte("abcdef")})
-	tfreq.AddFeedFloat32("threshold", easpredict.TfType_DT_FLOAT, []int64{}, []float32{0.9})
-	tfreq.AddFeedString("model_id", easpredict.TfType_DT_STRING, []int64{}, [][]byte{[]byte("PACKAGE_640")})
+	tfreq.AddFeedString("input_holder", TfType_DT_STRING, []int64{1}, [][]byte{[]byte("abcdef")})
+	tfreq.AddFeedFloat32("threshold", TfType_DT_FLOAT, []int64{}, []float32{0.9})
+	tfreq.AddFeedString("model_id", TfType_DT_STRING, []int64{}, [][]byte{[]byte("PACKAGE_640")})
 	// tfreq.AddFetch("sorted_probs")
 	// tfreq.AddFetch("sorted_labels")
 
@@ -76,6 +76,6 @@ func TestTF(t *testing.T) {
 	fmt.Println("average response time : ", time.Since(st)/10)
 }
 
-func main() {
-	// testTorch()
-}
+// func main() {
+// 	// testTorch()
+// }

@@ -2,18 +2,62 @@ package easpredict
 
 import (
 	"bytes"
-	"errors"
 	"fmt"
 	"io/ioutil"
 	"net/http"
 	"strings"
 	"time"
-
-	"eas-golang-sdk/easpredict/tf_predict_protos"
-	"eas-golang-sdk/easpredict/torch_predict_protos"
-
-	"github.com/golang/protobuf/proto"
 )
+
+const (
+	// EndpointTypeDefault = EndPoint Type Default
+	EndpointTypeDefault = "DEFAULT"
+	// EndpointTypeVipserver = EndPoint Type Vipserver
+	EndpointTypeVipserver = "VIPSERVER"
+	// EdnpointTypeDirect = EndPoint Type Direct
+	EdnpointTypeDirect = "DIRECT"
+)
+
+// PredictError is a custom err type
+type PredictError struct {
+	ErrorCode int
+	ErrorMsg  string
+}
+
+// Error for error interface
+func (prederr *PredictError) Error() string {
+	msg := fmt.Sprintf("PredictError: Code: %d, Message: %s", prederr.ErrorCode, prederr.ErrorMsg)
+	// fmt.Fprintf(os.Stderr, msg)
+	return msg
+}
+
+// NewPredictError constructs an error
+func NewPredictError(code int, msg string) *PredictError {
+	return &PredictError{
+		ErrorCode: code,
+		ErrorMsg:  msg,
+	}
+}
+
+// StringRequest for request interface
+type StringRequest struct {
+	str string
+}
+
+// ToString for request interface
+func (s StringRequest) ToString() (string, error) {
+	return s.str, nil
+}
+
+// StringResponse for response interface
+type StringResponse struct {
+	str string
+}
+
+func (s *StringResponse) unmarshal(body []byte) error {
+	s.str = string(body)
+	return nil
+}
 
 // PredictClient for accessing prediction service by creating a fixed size connection pool
 // to perform the request through established persistent connections.
@@ -59,18 +103,40 @@ func NewPredictClientWithConns(endpointName string, serviceName string, maxConns
 	}
 }
 
+// NewPredictClientWithConnsTimeout returns an instance of PredictClient
+func NewPredictClientWithConnsTimeout(endpointName string, serviceName string, maxConnsPerhost int, tlsHandshakeTimeout int, responseHeaderTimeout int, expectContinueTimeout int) *PredictClient {
+	return &PredictClient{
+		endpointName: endpointName,
+		serviceName:  serviceName,
+		retryCount:   5,
+		client: http.Client{
+			Timeout: 5000 * time.Millisecond,
+			Transport: &http.Transport{
+				MaxConnsPerHost:       maxConnsPerhost,
+				TLSHandshakeTimeout:   time.Duration(tlsHandshakeTimeout) * time.Millisecond,
+				ResponseHeaderTimeout: time.Duration(responseHeaderTimeout) * time.Millisecond,
+				ExpectContinueTimeout: time.Duration(expectContinueTimeout) * time.Millisecond,
+			},
+		},
+	}
+}
+
 // Init initialize client
-func (p *PredictClient) Init() {
-	if p.endpointType == "" || p.endpointType == "DEFAULT" {
+func (p *PredictClient) Init() error {
+	switch p.endpointType {
+	case "":
 		p.endpoint = newGatewayEndpoint(p.endpointName)
-	} else if p.endpointType == "VIPSERVER" {
+	case EndpointTypeDefault:
+		p.endpoint = newGatewayEndpoint(p.endpointName)
+	case EndpointTypeVipserver:
 		p.endpoint = newVipServerEndpoint(p.endpointName)
-	} else if p.endpointType == "DIRECT" {
+	case EdnpointTypeDirect:
 		p.endpoint = newCacheServerEndpoint(p.endpointName, p.serviceName)
-	} else {
-		defer fmt.Println("Code: 500, Message: Unsupported endpoint type: ", p.endpointType)
+	default:
+		return NewPredictError(500, "Unsupported endpoint type: "+p.endpointType)
 	}
 	go p.syncHandler()
+	return nil
 }
 
 // syncHandler sync endpoint with server
@@ -116,8 +182,7 @@ func (p *PredictClient) SetServiceName(serviceName string) {
 
 // buildURI returns an url for request
 func (p *PredictClient) buildURI() string {
-	endName := p.endpointName
-	endName = p.endpoint.Get()
+	endName := p.endpoint.Get()
 	if len(p.serviceName) != 0 {
 		if p.serviceName[len(p.serviceName)-1] == '/' {
 			p.serviceName = p.serviceName[:len(p.serviceName)-1]
@@ -152,24 +217,60 @@ func (p *PredictClient) predict(rawData []byte) ([]byte, error) {
 		resp, err := p.client.Do(req)
 		if err != nil {
 			if i == p.retryCount-1 {
-				fmt.Println("request error:", err)
-				return nil, err
+				return nil, NewPredictError(-1, err.Error())
 			}
 			continue
 		}
 		defer resp.Body.Close()
-		body, err := ioutil.ReadAll(resp.Body)
-		if err != nil || resp.StatusCode != 200 {
+		body, _ := ioutil.ReadAll(resp.Body)
+		if resp.StatusCode != 200 {
 			if i != p.retryCount-1 {
 				continue
 			}
-			fmt.Println("request error:", resp.Status, string(body))
-			fmt.Println(err)
-			return body, errors.New(resp.Status)
+			return body, NewPredictError(resp.StatusCode, resp.Status+":"+string(body))
 		}
 		return body, nil
 	}
 	return []byte{}, nil
+}
+
+// RequestIF interface
+type RequestIF interface {
+	ToString() (string, error)
+}
+
+// ResponseIF interface
+type ResponseIF interface {
+	unmarshal(body []byte) error
+}
+
+// Predict for request
+func (p *PredictClient) Predict(request RequestIF) (ResponseIF, error) {
+	req, err2 := request.ToString()
+	if err2 != nil {
+		return nil, err2
+	}
+	body, err := p.predict([]byte(req))
+	if err != nil {
+		return nil, err
+	}
+
+	switch request.(type) {
+	case StringRequest:
+		resp := StringResponse{}
+		unmarshalerr := resp.unmarshal(body)
+		return &resp, unmarshalerr
+	case TFRequest:
+		resp := TFResponse{}
+		unmarshalerr := resp.unmarshal(body)
+		return &resp, unmarshalerr
+	case TorchRequest:
+		resp := TorchResponse{}
+		unmarshalerr := resp.unmarshal(body)
+		return &resp, unmarshalerr
+	default:
+		return nil, NewPredictError(-1, "Unknown request type, currently support StringRequest, TFRequest and TorchRequest.")
+	}
 }
 
 // StringPredict function send input data and return predicted result
@@ -180,30 +281,12 @@ func (p *PredictClient) StringPredict(str string) (string, error) {
 
 // TorchPredict function send input data and return PyTorch predicted result
 func (p *PredictClient) TorchPredict(request TorchRequest) (TorchResponse, error) {
-	reqdata, err := proto.Marshal(&request.RequestData)
-	if err != nil {
-		fmt.Println("Marshal error: ", err)
-	}
-
-	body, err := p.predict(reqdata)
-	bd := &torch_predict_protos.PredictResponse{}
-	proto.Unmarshal(body, bd)
-	rsp := &TorchResponse{*bd}
-
-	return *rsp, err
+	resp, err := p.Predict(request)
+	return *resp.(*TorchResponse), err
 }
 
 // TFPredict function send input data and return TensorFlow predicted result
 func (p *PredictClient) TFPredict(request TFRequest) (TFResponse, error) {
-	reqdata, err := proto.Marshal(&request.RequestData)
-	if err != nil {
-		fmt.Println("Marshal error: ", err)
-	}
-
-	body, err := p.predict(reqdata)
-	bd := &tf_predict_protos.PredictResponse{}
-	proto.Unmarshal(body, bd)
-	rsp := &TFResponse{*bd}
-
-	return *rsp, err
+	resp, err := p.Predict(request)
+	return *resp.(*TFResponse), err
 }
