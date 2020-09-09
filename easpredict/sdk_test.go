@@ -12,7 +12,7 @@ func TestString(t *testing.T) {
 	client := NewPredictClientWithConns("endpoint", "service_name", 10)
 	client.SetToken("token==")
 	// client.SetEndpointType("DIRECT")
-	client.SetEndpointType("VIPSERVER")
+	// client.SetEndpointType("VIPSERVER")
 	client.Init()
 	req := "random string"
 	for i := 0; i < 1; i++ {
@@ -29,8 +29,8 @@ func TestString(t *testing.T) {
 func TestTorch(t *testing.T) {
 
 	cli := NewPredictClient("endpoint", "service_name")
-
 	cli.SetTimeout(80)
+	cli.SetRetryCount(5)
 	// cli.SetEndpointType("DIRECT")
 	cli.SetToken("token==")
 	cli.Init()

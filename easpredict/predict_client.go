@@ -108,7 +108,7 @@ func NewPredictClientWithConnsTimeout(endpointName string, serviceName string, m
 	return &PredictClient{
 		endpointName: endpointName,
 		serviceName:  serviceName,
-		retryCount:   5,
+		retryCount:   3,
 		client: http.Client{
 			Timeout: 5000 * time.Millisecond,
 			Transport: &http.Transport{
@@ -205,7 +205,7 @@ func (p *PredictClient) tryNext(url string) string {
 // predict function posts inputs rawData to server and get response as []byte{}
 func (p *PredictClient) predict(rawData []byte) ([]byte, error) {
 	url := p.buildURI()
-	for i := 0; i < p.retryCount; i++ {
+	for i := 0; i <= p.retryCount; i++ {
 		if i != 0 {
 			url = p.tryNext(url)
 		}
@@ -216,7 +216,7 @@ func (p *PredictClient) predict(rawData []byte) ([]byte, error) {
 		}
 		resp, err := p.client.Do(req)
 		if err != nil {
-			if i == p.retryCount-1 {
+			if i == p.retryCount {
 				return nil, NewPredictError(-1, err.Error())
 			}
 			continue
@@ -224,7 +224,7 @@ func (p *PredictClient) predict(rawData []byte) ([]byte, error) {
 		defer resp.Body.Close()
 		body, _ := ioutil.ReadAll(resp.Body)
 		if resp.StatusCode != 200 {
-			if i != p.retryCount-1 {
+			if i != p.retryCount {
 				continue
 			}
 			return body, NewPredictError(resp.StatusCode, resp.Status+":"+string(body))
@@ -282,11 +282,17 @@ func (p *PredictClient) StringPredict(str string) (string, error) {
 // TorchPredict function send input data and return PyTorch predicted result
 func (p *PredictClient) TorchPredict(request TorchRequest) (TorchResponse, error) {
 	resp, err := p.Predict(request)
+	if err != nil {
+		return resp, err
+	}
 	return *resp.(*TorchResponse), err
 }
 
 // TFPredict function send input data and return TensorFlow predicted result
 func (p *PredictClient) TFPredict(request TFRequest) (TFResponse, error) {
 	resp, err := p.Predict(request)
+	if err != nil {
+		return resp, err
+	}
 	return *resp.(*TFResponse), err
 }
