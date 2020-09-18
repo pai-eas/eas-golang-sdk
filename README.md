@@ -1,4 +1,10 @@
-EAS Golang SDK
+# EAS Golang SDK (BETA)
+
+**请用户注意：本sdk为beta版本，可供调试和试用。线上请谨慎试用！**
+
+**请用户注意：本sdk为beta版本，可供调试和试用。线上请谨慎试用！**
+
+**请用户注意：本sdk为beta版本，可供调试和试用。线上请谨慎试用！**
 
 总体参考了Python和Java SDK的设计和实现，定义predict_client做为请求客户端，内部方法实现了发送http请求，对于vipserver和direct的实现，在endpoint中定义相关类型，也参考了python的实现，wrr.go实现了roud robin算法。
 
@@ -173,3 +179,11 @@ func main() {
 	fmt.Println(resp2.GetTensorShape(0), resp2.GetFloatVal(0))
 }
 ```
+
+
+
+**请用户注意：本sdk为beta版本，可供调试和试用。线上请谨慎试用！**
+
+**请用户注意：本sdk为beta版本，可供调试和试用。线上请谨慎试用！**
+
+**请用户注意：本sdk为beta版本，可供调试和试用。线上请谨慎试用！**
