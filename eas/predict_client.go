@@ -1,4 +1,4 @@
-package easpredict
+package eas
 
 import (
 	"bytes"
@@ -10,53 +10,41 @@ import (
 )
 
 const (
-	// EndpointTypeDefault = EndPoint Type Default
+	// Default endpoint is the gateway mode
 	EndpointTypeDefault = "DEFAULT"
-	// EndpointTypeVipserver = EndPoint Type Vipserver
+	// Vipserver endpoint is only used for services which registered
+	// vipsever domains in alibaba internal clusters
 	EndpointTypeVipserver = "VIPSERVER"
-	// EdnpointTypeDirect = EndPoint Type Direct
-	EdnpointTypeDirect = "DIRECT"
+	// Direct endpoint is used for direct accessing to the services' instances
+	// both inside a eas service and in user's client ecs
+	EndpointTypeDirect = "DIRECT"
+)
+
+const (
+	ErrorCodeCreateRequest  = 511
+	ErrorCodePerformRequest = 512
+	ErrorCodeReadResponse   = 513
 )
 
 // PredictError is a custom err type
 type PredictError struct {
-	ErrorCode int
-	ErrorMsg  string
+	Code       int
+	Message    string
+	RequestURL string
 }
 
 // Error for error interface
-func (prederr *PredictError) Error() string {
-	msg := fmt.Sprintf("PredictError: Code: %d, Message: %s", prederr.ErrorCode, prederr.ErrorMsg)
-	// fmt.Fprintf(os.Stderr, msg)
-	return msg
+func (err *PredictError) Error() string {
+	return fmt.Sprintf("PredictError, Url: %v Code: %d, Message: %s", err.RequestURL, err.Code, err.Message)
 }
 
 // NewPredictError constructs an error
-func NewPredictError(code int, msg string) *PredictError {
+func NewPredictError(code int, url string, msg string) *PredictError {
 	return &PredictError{
-		ErrorCode: code,
-		ErrorMsg:  msg,
+		Code:       code,
+		Message:    msg,
+		RequestURL: url,
 	}
-}
-
-// StringRequest for request interface
-type StringRequest struct {
-	str string
-}
-
-// ToString for request interface
-func (s StringRequest) ToString() (string, error) {
-	return s.str, nil
-}
-
-// StringResponse for response interface
-type StringResponse struct {
-	str string
-}
-
-func (s *StringResponse) unmarshal(body []byte) error {
-	s.str = string(body)
-	return nil
 }
 
 // PredictClient for accessing prediction service by creating a fixed size connection pool
@@ -65,7 +53,7 @@ type PredictClient struct {
 	retryCount         int
 	maxConnectionCount int
 	token              string
-	endpoint           endpointIF
+	endpoint           Endpoint
 	endpointType       string
 	endpointName       string
 	serviceName        string
@@ -121,7 +109,7 @@ func NewPredictClientWithConnsTimeout(endpointName string, serviceName string, m
 	}
 }
 
-// Init initialize client
+// Init initializes the predict client to create and enable endpoint discovery
 func (p *PredictClient) Init() error {
 	switch p.endpointType {
 	case "":
@@ -130,23 +118,28 @@ func (p *PredictClient) Init() error {
 		p.endpoint = newGatewayEndpoint(p.endpointName)
 	case EndpointTypeVipserver:
 		p.endpoint = newVipServerEndpoint(p.endpointName)
-	case EdnpointTypeDirect:
+		go p.syncHandler()
+	case EndpointTypeDirect:
 		p.endpoint = newCacheServerEndpoint(p.endpointName, p.serviceName)
+		go p.syncHandler()
 	default:
-		return NewPredictError(500, "Unsupported endpoint type: "+p.endpointType)
+		return NewPredictError(http.StatusBadRequest, "", "Unsupported endpoint type: "+p.endpointType)
 	}
-	go p.syncHandler()
 	return nil
 }
 
-// syncHandler sync endpoint with server
+// syncHandler synchronizes the services's endpoints from the upstream discovery server periodically
 func (p *PredictClient) syncHandler() {
-	for true {
-		if p.stop {
-			break
+	p.endpoint.Sync()
+	for {
+		select {
+		// Sync endpoints from upstream every 3 seconds
+		case <-time.NewTimer(time.Second * 3).C:
+			if p.stop {
+				break
+			}
+			p.endpoint.Sync()
 		}
-		p.endpoint.sync()
-		time.Sleep(3 * time.Second)
 	}
 }
 
@@ -180,119 +173,151 @@ func (p *PredictClient) SetServiceName(serviceName string) {
 	p.serviceName = serviceName
 }
 
-// buildURI returns an url for request
-func (p *PredictClient) buildURI() string {
-	endName := p.endpoint.Get()
-	if len(p.serviceName) != 0 {
-		if p.serviceName[len(p.serviceName)-1] == '/' {
-			p.serviceName = p.serviceName[:len(p.serviceName)-1]
-		}
-	}
-	return fmt.Sprintf("http://%s/api/predict/%s", endName, p.serviceName)
-}
-
 func (p *PredictClient) tryNext(url string) string {
-	addr := url[strings.Index(url, "http://")+len("http://") : strings.Index(url, "/api/predict")]
-	endName := p.endpoint.TryNext(addr)
+	endpoint := ""
+	if len(url) > 0 {
+		addr := url[strings.Index(url, "http://")+len("http://") : strings.Index(url, "/api/predict")]
+		endpoint = p.endpoint.TryNext(addr)
+	} else {
+		endpoint = p.endpoint.TryNext("")
+	}
 	if len(p.serviceName) != 0 {
 		if p.serviceName[len(p.serviceName)-1] == '/' {
 			p.serviceName = p.serviceName[:len(p.serviceName)-1]
 		}
 	}
-	return fmt.Sprintf("http://%s/api/predict/%s", endName, p.serviceName)
+	return fmt.Sprintf("http://%s/api/predict/%s", endpoint, p.serviceName)
 }
 
-// predict function posts inputs rawData to server and get response as []byte{}
-func (p *PredictClient) predict(rawData []byte) ([]byte, error) {
-	url := p.buildURI()
+// generateSignature computes the signature header using the access token with hmac sha1 algorithm.
+// returns the headers including signature header for authentication.
+func (p *PredictClient) generateSignature(requestData []byte) map[string]string {
+	canonicalizedResource := fmt.Sprintf("/api/predict/%s", p.serviceName)
+	contentMd5 := md5sum(requestData)
+	contentType := "application/octet-stream"
+	currentTime := time.Now().Format("Mon, 02 Jan 2006 15:04:05 GMT")
+	verb := "POST"
+
+	auth := fmt.Sprintf("%s\n%s\n%s\n%s\n%s", verb, contentMd5, contentType, currentTime, canonicalizedResource)
+	authorization := fmt.Sprintf("EAS %s", hmacSha256(auth, p.token))
+
+	return map[string]string{
+		"Content-MD5":    contentMd5,
+		"Date":           currentTime,
+		"Content-Type":   contentType,
+		"Content-Length": fmt.Sprintf("%d", len(requestData)),
+		"Authorization":  authorization,
+	}
+}
+
+// BytesPredict send the raw request data in byte array through http connections,
+// retry the request automatically when an error occurs
+func (p *PredictClient) BytesPredict(requestData []byte) ([]byte, error) {
+	url := p.tryNext("")
+	headers := p.generateSignature(requestData)
 	for i := 0; i <= p.retryCount; i++ {
 		if i != 0 {
 			url = p.tryNext(url)
 		}
-		req, _ := http.NewRequest("POST", url, bytes.NewReader(rawData))
-		req.Header.Set("Content-Type", "application/octet-stream")
-		if p.token != "" {
-			req.Header.Set("Authorization", p.token)
-		}
-		resp, err := p.client.Do(req)
+
+		req, err := http.NewRequest("POST", url, bytes.NewReader(requestData))
 		if err != nil {
-			if i == p.retryCount {
-				return nil, NewPredictError(-1, err.Error())
-			}
-			continue
-		}
-		defer resp.Body.Close()
-		body, _ := ioutil.ReadAll(resp.Body)
-		if resp.StatusCode != 200 {
+			// retry
 			if i != p.retryCount {
 				continue
 			}
-			return body, NewPredictError(resp.StatusCode, resp.Status+":"+string(body))
+			return nil, NewPredictError(ErrorCodeCreateRequest, url, err.Error())
+		}
+		if p.token != "" {
+			for headerName, headerValue := range headers {
+				req.Header.Set(headerName, headerValue)
+			}
+		}
+
+		resp, err := p.client.Do(req)
+		if err != nil {
+			// retry
+			if i != p.retryCount {
+				continue
+			}
+			return nil, NewPredictError(ErrorCodePerformRequest, url, err.Error())
+		}
+
+		body, err := ioutil.ReadAll(resp.Body)
+		if err != nil {
+			// retry
+			if i != p.retryCount {
+				continue
+			}
+			return nil, NewPredictError(ErrorCodeReadResponse, url, err.Error())
+		}
+		resp.Body.Close()
+
+		if resp.StatusCode != 200 {
+			// retry
+			if i != p.retryCount {
+				continue
+			}
+			return body, NewPredictError(resp.StatusCode, url, resp.Status+":"+string(body))
 		}
 		return body, nil
 	}
 	return []byte{}, nil
 }
 
-// RequestIF interface
-type RequestIF interface {
+type Request interface {
 	ToString() (string, error)
 }
 
-// ResponseIF interface
-type ResponseIF interface {
+type Response interface {
 	unmarshal(body []byte) error
 }
 
 // Predict for request
-func (p *PredictClient) Predict(request RequestIF) (ResponseIF, error) {
+func (p *PredictClient) Predict(request Request) (Response, error) {
 	req, err2 := request.ToString()
 	if err2 != nil {
 		return nil, err2
 	}
-	body, err := p.predict([]byte(req))
+	body, err := p.BytesPredict([]byte(req))
 	if err != nil {
 		return nil, err
 	}
 
 	switch request.(type) {
-	case StringRequest:
-		resp := StringResponse{}
-		unmarshalerr := resp.unmarshal(body)
-		return &resp, unmarshalerr
 	case TFRequest:
 		resp := TFResponse{}
-		unmarshalerr := resp.unmarshal(body)
-		return &resp, unmarshalerr
+		unmarshalErr := resp.unmarshal(body)
+		return &resp, unmarshalErr
 	case TorchRequest:
 		resp := TorchResponse{}
-		unmarshalerr := resp.unmarshal(body)
-		return &resp, unmarshalerr
+		unmarshalErr := resp.unmarshal(body)
+		return &resp, unmarshalErr
 	default:
-		return nil, NewPredictError(-1, "Unknown request type, currently support StringRequest, TFRequest and TorchRequest.")
+		return nil, NewPredictError(-1, "", "Unknown request type, currently support StringRequest, TFRequest and TorchRequest.")
 	}
 }
 
 // StringPredict function send input data and return predicted result
 func (p *PredictClient) StringPredict(str string) (string, error) {
-	body, err := p.predict([]byte(str))
+	body, err := p.BytesPredict([]byte(str))
 	return string(body), err
 }
 
 // TorchPredict function send input data and return PyTorch predicted result
-func (p *PredictClient) TorchPredict(request TorchRequest) (TorchResponse, error) {
+func (p *PredictClient) TorchPredict(request TorchRequest) (*TorchResponse, error) {
 	resp, err := p.Predict(request)
 	if err != nil {
-		return resp, err
+		return nil, err
 	}
-	return *resp.(*TorchResponse), err
+	return resp.(*TorchResponse), err
 }
 
 // TFPredict function send input data and return TensorFlow predicted result
-func (p *PredictClient) TFPredict(request TFRequest) (TFResponse, error) {
+func (p *PredictClient) TFPredict(request TFRequest) (*TFResponse, error) {
 	resp, err := p.Predict(request)
 	if err != nil {
-		return resp, err
+		return nil, err
 	}
-	return *resp.(*TFResponse), err
+	return resp.(*TFResponse), err
 }

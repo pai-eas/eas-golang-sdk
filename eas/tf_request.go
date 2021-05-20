@@ -1,7 +1,7 @@
-package easpredict
+package eas
 
 import (
-	"eas-golang-sdk/easpredict/tf_predict_protos"
+	"eas-golang-sdk/eas/tf_predict_protos"
 
 	"github.com/golang/protobuf/proto"
 )
@@ -113,9 +113,9 @@ func (tr *TFRequest) AddFetch(outName string) {
 
 // ToString for interface
 func (tr TFRequest) ToString() (string, error) {
-	reqdata, err2 := proto.Marshal(&tr.RequestData)
-	if err2 != nil {
-		return "", NewPredictError(-1, err2.Error())
+	reqdata, err := proto.Marshal(&tr.RequestData)
+	if err != nil {
+		return "", NewPredictError(-1, "", err.Error())
 	}
 	return string(reqdata), nil
 }

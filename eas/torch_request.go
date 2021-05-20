@@ -1,7 +1,7 @@
-package easpredict
+package eas
 
 import (
-	"eas-golang-sdk/easpredict/torch_predict_protos"
+	"eas-golang-sdk/eas/torch_predict_protos"
 
 	"github.com/golang/protobuf/proto"
 )
@@ -78,9 +78,9 @@ func (tr *TorchRequest) AddFetch(outIndex int32) {
 
 // ToString for interface
 func (tr TorchRequest) ToString() (string, error) {
-	reqdata, err2 := proto.Marshal(&tr.RequestData)
-	if err2 != nil {
-		return "", NewPredictError(-1, err2.Error())
+	reqdata, err := proto.Marshal(&tr.RequestData)
+	if err != nil {
+		return "", NewPredictError(-1, "", err.Error())
 	}
 	return string(reqdata), nil
 }

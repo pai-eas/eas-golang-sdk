@@ -1,6 +1,6 @@
-package easpredict
+package eas
 
-import "eas-golang-sdk/easpredict/tf_predict_protos"
+import "eas-golang-sdk/eas/tf_predict_protos"
 
 // type tf_predict_protos.ArrayDataType tf_predict_protos.ArrayDataType
 

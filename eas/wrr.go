@@ -1,4 +1,4 @@
-package easpredict
+package eas
 
 type wrrscheduler struct {
 	currentWeight int
