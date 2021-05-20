@@ -1,7 +1,7 @@
 package eas
 
 import (
-	"eas-golang-sdk/eas/tf_predict_protos"
+	"github.com/pai-eas/eas-golang-sdk/eas/tf_predict_protos"
 
 	"github.com/golang/protobuf/proto"
 )
