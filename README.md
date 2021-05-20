@@ -1,15 +1,4 @@
-# EAS Golang SDK (BETA)
-
-**请用户注意：本sdk为beta版本，可供调试和试用。线上请谨慎试用！**
-
-**请用户注意：本sdk为beta版本，可供调试和试用。线上请谨慎试用！**
-
-**请用户注意：本sdk为beta版本，可供调试和试用。线上请谨慎试用！**
-
-总体参考了Python和Java SDK的设计和实现，定义predict_client做为请求客户端，内部方法实现了发送http请求，对于vipserver和direct的实现，在endpoint中定义相关类型，也参考了python的实现，wrr.go实现了roud robin算法。
-
-对pytorch和TensorFlow请求的格式进行了包装，并按照相同风格定义方法，对直接请求的情况已跑通。
-
+# EAS Golang SDK
 
 # Golang SDK调用接口说明
 
@@ -98,27 +87,11 @@ import (
 
 func main() {
 	cli := easpredict.NewPredictClient("endpoint", "service_name")
-	// cli.SetTimeout(1000)
 	cli.Init()
 
 	tfreq := easpredict.TFRequest{}
 	tfreq.SetSignatureName("predict_images")
 	tfreq.AddFeedFloat32("images", easpredict.TfType_DT_FLOAT, []int64{1, 784}, make([]float32, 784))
-	// tfreq.AddFetch("scores")
-
-	// st := time.Now()
-	// for i := 0; i < 10; i++ {
-	// 	resp, err := cli.TFPredict(tfreq)
-	// 	if err != nil { // error handling
-	// 		fmt.Println(err)
-	// 		// ...
-	// 	}
-    //     fmt.Println(resp.GetTensorShape("scores"), resp.GetFloatVal("scores"))
-	// }
-
-	// fmt.Println("average response time : ", time.Since(st)/10)
-
-	// general function:
 	resp, err := cli.Predict(tfreq)
 
 	if err != nil {
@@ -147,28 +120,13 @@ import (
 )
 
 func main() {
-
 	cli := easpredict.NewPredictClient("endpoint ", "service_name")
 
-	// cli.SetTimeout(00)
-	// cli.SetEndpointType("DIRECT")
 	cli.Init()
 	re := easpredict.TorchRequest{}
 	re.AddFeedFloat32(0, easpredict.TorchType_DT_FLOAT, []int64{1, 3, 224, 224}, make([]float32, 150528))
 	re.AddFetch(0)
 
-	// st := time.Now()
-	// for i := 0; i < 10; i++ {
-	// 	resp, err := cli.TorchPredict(re)
-	// 	if err != nil { // error handling
-	// 		fmt.Println(err)
-	// 		// ...
-	// 	}
-	// 	fmt.Println(resp.GetTensorShape(0), resp.GetFloatVal(0))
-	// }
-	// fmt.Println("average response time : ", time.Since(st)/10)
-
-	// general function
 	resp, err := cli.Predict(re)
 
 	if err != nil {
@@ -179,11 +137,3 @@ func main() {
 	fmt.Println(resp2.GetTensorShape(0), resp2.GetFloatVal(0))
 }
 ```
-
-
-
-**请用户注意：本sdk为beta版本，可供调试和试用。线上请谨慎试用！**
-
-**请用户注意：本sdk为beta版本，可供调试和试用。线上请谨慎试用！**
-
-**请用户注意：本sdk为beta版本，可供调试和试用。线上请谨慎试用！**
