@@ -33,107 +33,95 @@
 # 程序示例
 
 
-## String输入输出请求
+## 字符串输入输出程序示例
+
+对于自定义Processor用户而言，通常采用字符串进行服务的输入输出调用(如pmml模型服务的调用)，具体的demo程序如下：
 
 ```go
-package main 
+package main
 
 import (
-	"fmt"
-	"testing"
-	"time"
-
-	"eas-golang-sdk/easpredict"
+        "fmt"
+        "github.com/pai-eas/eas-golang-sdk/eas"
 )
 
 func main() {
-	client := easpredict.NewPredictClient("endpoind", "service_name")
-	client.SetToken("token==")
-	client.Init()
-	// req := "test string"
-	// for i := 0; i < 10; i++ {
-	// 	resp, err := client.StringPredict(req)
-	// 	if len(resp) == 0 || err != nil { // error handling
-	// 		fmt.Println(err)
-	// 	}
-	// 	fmt.Println(resp)
-	// }
-
-	// general function
-	req := StringRequest{"test string"}
-	resp, err := client.Predict(req)
-
-	if len(resp) == 0 || err != nil { // error handling
-		fmt.Println(err)
-		// ...
-	}
-	fmt.Println(resp.(*easpredict.StringResponse).str)
-
+        client := eas.NewPredictClientWithConns("1828488879222746.cn-shanghai.pai-eas.aliyuncs.com", "scorecard_pmml_example", 10)
+        client.SetToken("YWFlMDYyZDNmNTc3M2I3MzMwYmY0MmYwM2Y2MTYxMTY4NzBkNzdjOQ==")
+        client.Init()
+        req := "[{\"fea1\": 1, \"fea2\": 2}]"
+        for i := 0; i < 1000; i++ {
+                resp, err := client.StringPredict(req)
+                if err != nil {
+                        fmt.Printf("failed to predict: %v\n", err.Error())
+                } else {
+                        fmt.Printf("%v\n", resp)
+                }
+        }
 }
 ```
 
 ## TensorFlow输入输出请求
 
+Tensorflow用户可以使用TFRequest与TFResponse作为数据的输入输出格式，具体demo示例如下：
+
 ```go
-package main 
+package main
 
 import (
-	"fmt"
-	"testing"
-	"time"
-
-	"eas-golang-sdk/easpredict"
+        "fmt"
+        "github.com/pai-eas/eas-golang-sdk/eas"
 )
 
 func main() {
-	cli := easpredict.NewPredictClient("endpoint", "service_name")
-	cli.Init()
+        cli := eas.NewPredictClient("1828488879222746.cn-shanghai.pai-eas.aliyuncs.com", "mnist_saved_model_example")
+        cli.SetToken("YTg2ZjE0ZjM4ZmE3OTc0NzYxZDMyNmYzMTJjZTQ1YmU0N2FjMTAyMA==")
+        cli.Init()
 
-	tfreq := easpredict.TFRequest{}
-	tfreq.SetSignatureName("predict_images")
-	tfreq.AddFeedFloat32("images", easpredict.TfType_DT_FLOAT, []int64{1, 784}, make([]float32, 784))
-	resp, err := cli.Predict(tfreq)
+        tfreq := eas.TFRequest{}
+        tfreq.SetSignatureName("predict_images")
+        tfreq.AddFeedFloat32("images", eas.TfType_DT_FLOAT, []int64{1, 784}, make([]float32, 784))
 
-	if err != nil {
-		fmt.Println("err", err)
-		// ...
-	}
-	resp2, _ := resp.(*easpredict.TFResponse)
-	fmt.Println(resp2.GetTensorShape("scores"), resp2.GetFloatVal("scores"))
-
+        for i := 0; i < 1000; i++ {
+                resp, err := cli.TFPredict(tfreq)
+                if err != nil {
+                        fmt.Printf("failed to predict: %v", err)
+                } else {
+                        fmt.Printf("%v\n", resp)
+                }
+        }
 }
 ```
 
 
 ## PyTorch输入输出程序示例
+
 PyTorch用户可以使用TorchRequest与TorchResponse作为数据的输入输出格式，具体demo示例如下：
 
 ```go
-package main 
+package main
 
 import (
-	"fmt"
-	"testing"
-	"time"
-
-	"eas-golang-sdk/easpredict"
+        "fmt"
+        "github.com/pai-eas/eas-golang-sdk/eas"
 )
 
 func main() {
-	cli := easpredict.NewPredictClient("endpoint ", "service_name")
+        cli := eas.NewPredictClient("1828488879222746.cn-shanghai.pai-eas.aliyuncs.com", "torch_example")
+        cli.SetToken("YTg2ZjE0ZjM4ZmE3OTc0NzYxZDMyNmYzMTJjZTQ1YmU0N2FjMTAyMA==")
+        cli.Init()
 
-	cli.Init()
-	re := easpredict.TorchRequest{}
-	re.AddFeedFloat32(0, easpredict.TorchType_DT_FLOAT, []int64{1, 3, 224, 224}, make([]float32, 150528))
-	re.AddFetch(0)
+        req := eas.TorchRequest{}
+        req.AddFeedFloat32(0, eas.TorchType_DT_FLOAT, []int64{1, 3, 224, 224}, make([]float32, 150528))
+        req.AddFetch(0)
 
-	resp, err := cli.Predict(re)
-
-	if err != nil {
-		fmt.Println("err", err)
-		// ...
-	}
-	resp2, _ := resp.(*easpredict.TorchResponse)
-	fmt.Println(resp2.GetTensorShape(0), resp2.GetFloatVal(0))
+        for i := 0; i < 1000; i++ {
+                resp, err := cli.TorchPredict(req)
+                if err != nil {
+                        fmt.Printf("failed to predict: %v\n", err)
+                } else {
+                        fmt.Printf("%v\n", resp)
+                }
+        }
 }
 ```
