@@ -1,7 +1,6 @@
 # EAS Golang SDK
 
 # Golang SDK调用接口说明
-
 |类|主要接口|描述|
 |-----|------|------|
 |PredictClient|NewPredictClient(endpoint, service_name) *PredictClient|PredictClient类构造函数，endpoint是服务端的endpoint地址，对于普通服务设置为默认网关endpoint；service_name为服务名字；两个参数不可缺失。|
