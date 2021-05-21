@@ -18,7 +18,13 @@
 ||TFPredict(TFRequest)|向在线预测服务提交一个预测请求，request对象是TFRequest类，返回为对应的TFResponse|
 |StringRequest|StringRequest{string("")}|TFRequest类构建函数，将string转换为StringRequest以调用Predict方法|
 |TFRequest|TFRequest(signature_name)|TFRequest类构建函数，输入为要请求模型的signature_name|
-||AddFeed$TYPE$(inputName string, shape []int64{}, tfDataType, content []$TYPE$)|请求Tensorflow的在线预测服务模型时，设置需要输入的Tensor，inputName表示输入Tensor的别名，tfDataType表示输入Tensor的DataType， shape表示输入Tensor的TensorShape，content表示输入Tensor的内容（一维数组展开表示）。DataType支持如下几种类型：easpredict.TfType_DT_FLOAT,easpredict.TfType_DT_DOUBLE,easpredict.TfType_DT_INT8,easpredict.TfType_DT_INT16,easpredict.TfType_DT_INT32,easpredict.TfType_DT_INT64,easpredict.TfType_DT_STRING,easpredict.TfType_DT_BOOL|
+||AddFeedInt32(inputName string, shape []int64{}, content []int32)|请求Tensorflow的在线预测服务模型时，设置需要输入的Tensor，inputName表示输入Tensor的别名，shape表示输入Tensor的TensorShape，content表示输入的32位整形的Tensor的内容（一维数组展开表示）|
+||AddFeedInt64(inputName string, shape []int64{}, content []int64)|请求Tensorflow的在线预测服务模型时，设置需要输入的Tensor，inputName表示输入Tensor的别名，shape表示输入Tensor的TensorShape，content表示输入的64位整形的Tensor的内容（一维数组展开表示）|
+||AddFeedFloat32(inputName string, shape []int64{}, content []float32)|请求Tensorflow的在线预测服务模型时，设置需要输入的Tensor，inputName表示输入Tensor的别名，shape表示输入Tensor的TensorShape，content表示输入的32位浮点型的Tensor的内容（一维数组展开表示）|
+||AddFeedFloat64(inputName string, shape []int64{}, content []float64)|请求Tensorflow的在线预测服务模型时，设置需要输入的Tensor，inputName表示输入Tensor的别名，shape表示输入Tensor的TensorShape，content表示输入的64位浮点型的Tensor的内容（一维数组展开表示）|
+||AddFeedBool(inputName string, shape []int64{}, content []bool)|请求Tensorflow的在线预测服务模型时，设置需要输入的Tensor，inputName表示输入Tensor的别名，shape表示输入Tensor的TensorShape，content表示输入的Bool型的Tensor的内容（一维数组展开表示）|
+||AddFeedString(inputName string, shape []int64{}, content []string)|请求Tensorflow的在线预测服务模型时，设置需要输入的Tensor，inputName表示输入Tensor的别名，shape表示输入Tensor的TensorShape，content表示输入的字符串类型的Tensor的内容（一维数组展开表示）|
+||AddFetch(outputName)|请求Tensorflow的在线预测服务模型时，设置需要输出的Tensor的别名，对于savedmodel模型该参数可选，若不设置，则输出所有的outputs，对于frozen model该参数必选|
 
 # 程序示例
 
