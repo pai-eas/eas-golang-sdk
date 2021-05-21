@@ -17,7 +17,7 @@ func (tr *TFRequest) SetSignatureName(sigName string) {
 }
 
 // AddFeedFloat32 function adds float values input data for TFRequest
-func (tr *TFRequest) AddFeedFloat32(inputName string, tfDataType tf_predict_protos.ArrayDataType, shape []int64, content []float32) {
+func (tr *TFRequest) AddFeedFloat32(inputName string, shape []int64, content []float32) {
 	requestProto := tf_predict_protos.ArrayProto{
 		Dtype: TfType_DT_FLOAT,
 		ArrayShape: &tf_predict_protos.ArrayShape{
@@ -32,7 +32,7 @@ func (tr *TFRequest) AddFeedFloat32(inputName string, tfDataType tf_predict_prot
 }
 
 // AddFeedFloat64 function adds double values input data for TFRequest
-func (tr *TFRequest) AddFeedFloat64(inputName string, tfDataType tf_predict_protos.ArrayDataType, shape []int64, content []float64) {
+func (tr *TFRequest) AddFeedFloat64(inputName string, shape []int64, content []float64) {
 	requestProto := tf_predict_protos.ArrayProto{
 		Dtype: TfType_DT_DOUBLE,
 		ArrayShape: &tf_predict_protos.ArrayShape{
@@ -47,7 +47,7 @@ func (tr *TFRequest) AddFeedFloat64(inputName string, tfDataType tf_predict_prot
 }
 
 // AddFeedInt32 function adds int values input data for TFRequest
-func (tr *TFRequest) AddFeedInt32(inputName string, tfDataType tf_predict_protos.ArrayDataType, shape []int64, content []int32) {
+func (tr *TFRequest) AddFeedInt32(inputName string, shape []int64, content []int32) {
 	requestProto := tf_predict_protos.ArrayProto{
 		Dtype: TfType_DT_INT32,
 		ArrayShape: &tf_predict_protos.ArrayShape{
@@ -62,7 +62,7 @@ func (tr *TFRequest) AddFeedInt32(inputName string, tfDataType tf_predict_protos
 }
 
 // AddFeedInt64 function adds int64 values input data for TFRequest
-func (tr *TFRequest) AddFeedInt64(inputName string, tfDataType tf_predict_protos.ArrayDataType, shape []int64, content []int64) {
+func (tr *TFRequest) AddFeedInt64(inputName string, shape []int64, content []int64) {
 	requestProto := tf_predict_protos.ArrayProto{
 		Dtype: TfType_DT_INT64,
 		ArrayShape: &tf_predict_protos.ArrayShape{
@@ -77,7 +77,7 @@ func (tr *TFRequest) AddFeedInt64(inputName string, tfDataType tf_predict_protos
 }
 
 // AddFeedBool function adds boolean values input data for TFRequest
-func (tr *TFRequest) AddFeedBool(inputName string, tfDataType tf_predict_protos.ArrayDataType, shape []int64, content []bool) {
+func (tr *TFRequest) AddFeedBool(inputName string, shape []int64, content []bool) {
 	requestProto := tf_predict_protos.ArrayProto{
 		Dtype: TfType_DT_BOOL,
 		ArrayShape: &tf_predict_protos.ArrayShape{
@@ -92,7 +92,7 @@ func (tr *TFRequest) AddFeedBool(inputName string, tfDataType tf_predict_protos.
 }
 
 // AddFeedString function adds string values input data for TFRequest
-func (tr *TFRequest) AddFeedString(inputName string, tfDataType tf_predict_protos.ArrayDataType, shape []int64, content [][]byte) {
+func (tr *TFRequest) AddFeedString(inputName string, shape []int64, content [][]byte) {
 	requestProto := tf_predict_protos.ArrayProto{
 		Dtype: TfType_DT_STRING,
 		ArrayShape: &tf_predict_protos.ArrayShape{

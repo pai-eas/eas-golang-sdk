@@ -76,39 +76,6 @@ func NewPredictClient(endpointName string, serviceName string) *PredictClient {
 	}
 }
 
-// NewPredictClientWithConns returns an instance of PredictClient
-func NewPredictClientWithConns(endpointName string, serviceName string, maxConnsPerhost int) *PredictClient {
-	return &PredictClient{
-		endpointName: endpointName,
-		serviceName:  serviceName,
-		retryCount:   5,
-		client: http.Client{
-			Timeout: 5000 * time.Millisecond,
-			Transport: &http.Transport{
-				MaxConnsPerHost: maxConnsPerhost,
-			},
-		},
-	}
-}
-
-// NewPredictClientWithConnsTimeout returns an instance of PredictClient
-func NewPredictClientWithConnsTimeout(endpointName string, serviceName string, maxConnsPerhost int, tlsHandshakeTimeout int, responseHeaderTimeout int, expectContinueTimeout int) *PredictClient {
-	return &PredictClient{
-		endpointName: endpointName,
-		serviceName:  serviceName,
-		retryCount:   3,
-		client: http.Client{
-			Timeout: 5000 * time.Millisecond,
-			Transport: &http.Transport{
-				MaxConnsPerHost:       maxConnsPerhost,
-				TLSHandshakeTimeout:   time.Duration(tlsHandshakeTimeout) * time.Millisecond,
-				ResponseHeaderTimeout: time.Duration(responseHeaderTimeout) * time.Millisecond,
-				ExpectContinueTimeout: time.Duration(expectContinueTimeout) * time.Millisecond,
-			},
-		},
-	}
-}
-
 // Init initializes the predict client to create and enable endpoint discovery
 func (p *PredictClient) Init() error {
 	switch p.endpointType {
@@ -143,32 +110,37 @@ func (p *PredictClient) syncHandler() {
 	}
 }
 
-// SetEndpoint for client
+// SetEndpoint sets service's endpoint for client
 func (p *PredictClient) SetEndpoint(endpointName string) {
 	p.endpointName = endpointName
 }
 
-// SetEndpointType for client
+// SetEndpointType sets endpoint type for client
 func (p *PredictClient) SetEndpointType(endpointType string) {
 	p.endpointType = endpointType
 }
 
-// SetToken function sets token for client
+// SetToken function sets service's access token for client
 func (p *PredictClient) SetToken(token string) {
 	p.token = token
 }
 
-// SetRetryCount for client
+// SetRetryCount sets max retry count for client
 func (p *PredictClient) SetRetryCount(cnt int) {
 	p.retryCount = cnt
 }
 
-// SetTimeout for client
+// SetHttpTransport sets http transport argument for go http client
+func (p *PredictClient) SetHttpTransport(transport *http.Transport) {
+	p.client.Transport = transport
+}
+
+// SetTimeout set the request timeout for client, 5000ms by default
 func (p *PredictClient) SetTimeout(timeout int) {
 	p.client.Timeout = time.Duration(timeout) * time.Millisecond
 }
 
-// SetServiceName for client
+// SetServiceName sets target service name for client
 func (p *PredictClient) SetServiceName(serviceName string) {
 	p.serviceName = serviceName
 }
