@@ -18,6 +18,7 @@
 ||TFPredict(TFRequest)|向在线预测服务提交一个预测请求，request对象是TFRequest类，返回为对应的TFResponse|
 |StringRequest|StringRequest{string("")}|TFRequest类构建函数，将string转换为StringRequest以调用Predict方法|
 |TFRequest|TFRequest(signature_name)|TFRequest类构建函数，输入为要请求模型的signature_name|
+||AddFeed$TYPE$(inputName string, shape []int64{}, tfDataType, content []$TYPE$)|请求Tensorflow的在线预测服务模型时，设置需要输入的Tensor，inputName表示输入Tensor的别名，tfDataType表示输入Tensor的DataType， shape表示输入Tensor的TensorShape，content表示输入Tensor的内容（一维数组展开表示）。DataType支持如下几种类型：easpredict.TfType_DT_FLOAT,easpredict.TfType_DT_DOUBLE,easpredict.TfType_DT_INT8,easpredict.TfType_DT_INT16,easpredict.TfType_DT_INT32,easpredict.TfType_DT_INT64,easpredict.TfType_DT_STRING,easpredict.TfType_DT_BOOL|
 
 # 程序示例
 
