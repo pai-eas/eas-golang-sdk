@@ -4,6 +4,15 @@
 |类|主要接口|描述|
 |-----|------|------|
 |PredictClient|NewPredictClient(endpoint, service_name) *PredictClient|PredictClient类构造函数，endpoint是服务端的endpoint地址，对于普通服务设置为默认网关endpoint；service_name为服务名字；两个参数不可缺失。|
+||SetEndpoint(endpointName)|设置服务的endpoint，endpoint的说明见上述构造函数|
+||SetServiceName(serviceName)|设置请求的服务名字|
+||SetEndpointType(endpointType)|设置服务端的网关类型，支持默认网关("DEFAULT"或不设置），"VIPSERVER"，"DIRECT"，默认值为空|
+||SetToken(token)|设置服务访问的token|
+||SetHttpTransport(*transport)|设置http客户端的Transport属性|
+||SetRetryCount(max_retry_count)|设置请求失败重试次数，默认为5；该参数非常重要，对于服务端进程异常或机器异常或网关长连接断开等情况带来的个别请求失败，均需由客户端来重试解决，请勿将其设置为0|
+||SetTimeout(timeout)|设置请求的超时时间，单位为ms，默认为5000|
+||Init() |对PredictClient对象进行初始化，在上述设置参数的函数执行完成后，**需要调用Init()函数才会生效**|
+||Predict(Request)|向在线预测服务提交一个预测请求，request对象是interface(StringRequest, TFRequest,TorchRequest)，返回为Response interface(StringResponse, TFResponse,TorchResponse)|
 
 # 程序示例
 
