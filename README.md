@@ -13,6 +13,11 @@
 ||SetTimeout(timeout)|设置请求的超时时间，单位为ms，默认为5000|
 ||Init() |对PredictClient对象进行初始化，在上述设置参数的函数执行完成后，**需要调用Init()函数才会生效**|
 ||Predict(Request)|向在线预测服务提交一个预测请求，request对象是interface(StringRequest, TFRequest,TorchRequest)，返回为Response interface(StringResponse, TFResponse,TorchResponse)|
+||StringPredict(string)|向在线预测服务提交一个预测请求，request对象是string，返回也为string|
+||TorchPredict(TorchRequest)|向在线预测服务提交一个预测请求，request对象是TorchRequest类，返回为对应的TorchResponse|
+||TFPredict(TFRequest)|向在线预测服务提交一个预测请求，request对象是TFRequest类，返回为对应的TFResponse|
+|StringRequest|StringRequest{string("")}|TFRequest类构建函数，将string转换为StringRequest以调用Predict方法|
+|TFRequest|TFRequest(signature_name)|TFRequest类构建函数，输入为要请求模型的signature_name|
 
 # 程序示例
 
