@@ -23,7 +23,7 @@
 |TFResponse|GetTensorShape(outputName)|获得别名为ouputname的输出Tensor的TensorShape|
 ||Get(?)Val(outputName)|获取输出的tensor的数据向量，输出结果以一维数组的形式保存，可配套使用GetTensorShape()获取对应的tensor的shape，将其还原成所需的多维tensor, 其中类型可选Float, Double, Int, Int64, String, Bool，函数名与具体类型相关，如GetFloatVal()|
 |TorchRequest|TorchRequest()|TFRequest类构建方法|
-||AddFeed(index, shape []int64{}, dataType, content)|请求PyTorch的在线预测服务模型时，设置需要输入的Tensor，index表示要输入的tensor的下标，dataType表示输入Tensor的DataType， shape表示输入Tensor的TensorShape，content表示输入Tensor的内容（一维数组展开表示）。DataType支持如下几种类型：easpredict.TorchType_DT_FLOAT, easpredict.TorchType_DT_DOUBLE, easpredict.TorchType_DT_INT32, easpredict.TorchType_DT_UINT8, easpredict.TorchType_DT_INT16, easpredict.TorchType_DT_INT8, easpredict.TorchType_DT_INT64, |
+||AddFeed(?)(index, shape []int64{}, dataType, content []?)|请求PyTorch的在线预测服务模型时，设置需要输入的Tensor，index表示要输入的tensor的下标，dataType表示输入Tensor的DataType， shape表示输入Tensor的TensorShape，content表示输入Tensor的内容（一维数组展开表示）。DataType支持如下几种类型：eas.TorchType_DT_FLOAT, eas.TorchType_DT_DOUBLE, eas.TorchType_DT_INT32, eas.TorchType_DT_UINT8, eas.TorchType_DT_INT16, eas.TorchType_DT_INT8, eas.TorchType_DT_INT64 |
 ||AddFetch(outputIndex)|请求PyTorch的在线预测服务模型时，设置需要输出的Tensor的index，可选，若不设置，则输出所有的outputs|
 |TorchResponse|GetTensorShape(outputIndex)|获得下标outputIndex的输出Tensor的TensorShape|
 ||Get(?)Val(outputIndex)|获取输出的tensor的数据向量，输出结果以一维数组的形式保存，可配套使用GetTensorShape()获取对应的tensor的shape，将其还原成所需的多维tensor, 其中类型可选Float, Double, Int, Int64，函数名与具体类型相关，如GetFloatVal()|
