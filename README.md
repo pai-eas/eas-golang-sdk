@@ -125,3 +125,32 @@ func main() {
         }
 }
 ```
+
+## 通过VPC网络直连的方式调用服务
+
+网络直连方式仅支持部署在EAS公共云控制台中购买专用资源组的服务，且需要在控制台上为该资源组与用户指定的vswitch打通网络后才可使用。调用方法与普通调用方式相比，增加一句 client.set_endpoint_type(ENDPOINT_TYPE_DIRECT) 即可，非常适合大流量高并发的服务。
+
+```go
+package main
+
+import (
+        "fmt"
+        "github.com/pai-eas/eas-golang-sdk/eas"
+)
+
+func main() {
+        client := eas.NewPredictClientWithConns("1828488879222746.cn-shanghai.pai-eas.aliyuncs.com", "scorecard_pmml_example", 10)
+        client.SetToken("YWFlMDYyZDNmNTc3M2I3MzMwYmY0MmYwM2Y2MTYxMTY4NzBkNzdjOQ==")
+	client.setEndpointType()
+        client.Init()
+        req := "[{\"fea1\": 1, \"fea2\": 2}]"
+        for i := 0; i < 1000; i++ {
+                resp, err := client.StringPredict(req)
+                if err != nil {
+                        fmt.Printf("failed to predict: %v\n", err.Error())
+                } else {
+                        fmt.Printf("%v\n", resp)
+                }
+        }
+}
+```

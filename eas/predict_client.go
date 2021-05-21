@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
-	"strings"
 	"time"
 )
 
@@ -21,9 +20,10 @@ const (
 )
 
 const (
-	ErrorCodeCreateRequest  = 511
-	ErrorCodePerformRequest = 512
-	ErrorCodeReadResponse   = 513
+	ErrorCodeServiceDiscovery = 510
+	ErrorCodeCreateRequest    = 511
+	ErrorCodePerformRequest   = 512
+	ErrorCodeReadResponse     = 513
 )
 
 // PredictError is a custom err type
@@ -35,7 +35,7 @@ type PredictError struct {
 
 // Error for error interface
 func (err *PredictError) Error() string {
-	return fmt.Sprintf("PredictError, Url: %v Code: %d, Message: %s", err.RequestURL, err.Code, err.Message)
+	return fmt.Sprintf("PredictError, Url: [%v] Code: [%d], Message: [%s]", err.RequestURL, err.Code, err.Message)
 }
 
 // NewPredictError constructs an error
@@ -173,20 +173,17 @@ func (p *PredictClient) SetServiceName(serviceName string) {
 	p.serviceName = serviceName
 }
 
-func (p *PredictClient) tryNext(url string) string {
-	endpoint := ""
-	if len(url) > 0 {
-		addr := url[strings.Index(url, "http://")+len("http://") : strings.Index(url, "/api/predict")]
-		endpoint = p.endpoint.TryNext(addr)
-	} else {
-		endpoint = p.endpoint.TryNext("")
-	}
+func (p *PredictClient) tryNext(host string) string {
+	return p.endpoint.TryNext(host)
+}
+
+func (p *PredictClient) createUrl(host string) string {
 	if len(p.serviceName) != 0 {
 		if p.serviceName[len(p.serviceName)-1] == '/' {
 			p.serviceName = p.serviceName[:len(p.serviceName)-1]
 		}
 	}
-	return fmt.Sprintf("http://%s/api/predict/%s", endpoint, p.serviceName)
+	return fmt.Sprintf("http://%s/api/predict/%s", host, p.serviceName)
 }
 
 // generateSignature computes the signature header using the access token with hmac sha1 algorithm.
@@ -213,12 +210,19 @@ func (p *PredictClient) generateSignature(requestData []byte) map[string]string 
 // BytesPredict send the raw request data in byte array through http connections,
 // retry the request automatically when an error occurs
 func (p *PredictClient) BytesPredict(requestData []byte) ([]byte, error) {
-	url := p.tryNext("")
+	host := p.tryNext("")
 	headers := p.generateSignature(requestData)
 	for i := 0; i <= p.retryCount; i++ {
 		if i != 0 {
-			url = p.tryNext(url)
+			host = p.tryNext(host)
 		}
+
+		if len(host) == 0 {
+			return nil, NewPredictError(ErrorCodeServiceDiscovery, host,
+				fmt.Sprintf("No available endpoint found for service: %v", p.serviceName))
+		}
+
+		url := p.createUrl(host)
 
 		req, err := http.NewRequest("POST", url, bytes.NewReader(requestData))
 		if err != nil {
