@@ -8,18 +8,18 @@ import (
 )
 
 const (
-	EndpointName = ""
-	PMMLName = ""
-	PMMLToken = ""
-	TensorflowName = ""
-	TensorflowToken = ""
-	TorchName = ""
-	TorchToken = ""
+	EndpointName = "1828488879222746.cn-shanghai.pai-eas.aliyuncs.com"
+	PMMLName = "scorecard_pmml_example"
+	PMMLToken = "YWFlMDYyZDNmNTc3M2I3MzMwYmY0MmYwM2Y2MTYxMTY4NzBkNzdjOQ=="
+	TensorflowName = "mnist_saved_model_example"
+	TensorflowToken = "YTg2ZjE0ZjM4ZmE3OTc0NzYxZDMyNmYzMTJjZTQ1YmU0N2FjMTAyMA=="
+	TorchName = "pytorch_resnet_example"
+	TorchToken = "ZjdjZDg1NWVlMWI2NTU5YzJiMmY5ZmE5OTBmYzZkMjI0YjlmYWVlZg=="
 )
 
 func TestString(t *testing.T) {
 
-	client := NewPredictClientWithConns(EndpointName, PMMLName, 10)
+	client := NewPredictClient(EndpointName, PMMLName)
 	client.SetToken(PMMLToken)
 	client.Init()
 	req := "[{}]"
@@ -36,13 +36,13 @@ func TestTF(t *testing.T) {
 	cli.SetToken(TensorflowToken)
 	cli.Init()
 
-	tfreq := TFRequest{}
-	tfreq.SetSignatureName("predict_images")
-	tfreq.AddFeedFloat32("images", TfType_DT_FLOAT, []int64{1, 784}, make([]float32, 784))
+	req := TFRequest{}
+	req.SetSignatureName("predict_images")
+	req.AddFeedFloat32("images", []int64{1, 784}, make([]float32, 784))
 
 	st := time.Now()
 	for i := 0; i < 10; i++ {
-		resp, err := cli.TFPredict(tfreq)
+		resp, err := cli.TFPredict(req)
 		if err != nil {
 			t.Fatalf("failed to query tf model: %v", err)
 		}
@@ -56,16 +56,15 @@ func TestTF(t *testing.T) {
 func TestTorch(t *testing.T) {
 
 	cli := NewPredictClient(EndpointName, TorchName)
-	cli.SetTimeout(80)
-	cli.SetRetryCount(5)
+	cli.SetTimeout(500)
 	cli.SetToken(TorchToken)
 	cli.Init()
-	re := TorchRequest{}
-	re.AddFeedFloat32(0, TorchType_DT_FLOAT, []int64{1, 3, 224, 224}, make([]float32, 150528))
-	re.AddFetch(0)
+	req := TorchRequest{}
+	req.AddFeedFloat32(0, []int64{1, 3, 224, 224}, make([]float32, 150528))
+	req.AddFetch(0)
 	st := time.Now()
 	for i := 0; i < 10; i++ {
-		resp, err := cli.TorchPredict(re)
+		resp, err := cli.TorchPredict(req)
 		if err != nil {
 			t.Fatalf("failed to query torch model: %v", err)
 		}

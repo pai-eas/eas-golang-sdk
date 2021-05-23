@@ -35,7 +35,7 @@ type PredictError struct {
 
 // Error for error interface
 func (err *PredictError) Error() string {
-	return fmt.Sprintf("PredictError, Url: [%v] Code: [%d], Message: [%s]", err.RequestURL, err.Code, err.Message)
+	return fmt.Sprintf("Url: [%v] Code: [%d], Message: [%s]", err.RequestURL, err.Code, err.Message)
 }
 
 // NewPredictError constructs an error
@@ -234,7 +234,7 @@ func (p *PredictClient) BytesPredict(requestData []byte) ([]byte, error) {
 			if i != p.retryCount {
 				continue
 			}
-			return body, NewPredictError(resp.StatusCode, url, resp.Status+":"+string(body))
+			return body, NewPredictError(resp.StatusCode, url, string(body))
 		}
 		return body, nil
 	}

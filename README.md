@@ -105,20 +105,19 @@ import (
 )
 
 func main() {
-        cli := eas.NewPredictClient("1828488879222746.cn-shanghai.pai-eas.aliyuncs.com", "torch_example")
-        cli.SetToken("YTg2ZjE0ZjM4ZmE3OTc0NzYxZDMyNmYzMTJjZTQ1YmU0N2FjMTAyMA==")
+        cli := eas.NewPredictClient("1828488879222746.cn-shanghai.pai-eas.aliyuncs.co", "pytorch_resnet_example")
+        cli.SetTimeout(500)
+        cli.SetToken("ZjdjZDg1NWVlMWI2NTU5YzJiMmY5ZmE5OTBmYzZkMjI0YjlmYWVlZg==")
         cli.Init()
-
         req := eas.TorchRequest{}
-        req.AddFeedFloat32(0, eas.TorchType_DT_FLOAT, []int64{1, 3, 224, 224}, make([]float32, 150528))
+        req.AddFeedFloat32(0, []int64{1, 3, 224, 224}, make([]float32, 150528))
         req.AddFetch(0)
-
-        for i := 0; i < 1000; i++ {
+        for i := 0; i < 100000000; i++ {
                 resp, err := cli.TorchPredict(req)
                 if err != nil {
-                        fmt.Printf("failed to predict: %v\n", err)
+                        fmt.Printf("failed to predict: %v", err)
                 } else {
-                        fmt.Printf("%v\n", resp)
+                        fmt.Println(resp.GetTensorShape(0), resp.GetFloatVal(0))
                 }
         }
 }
