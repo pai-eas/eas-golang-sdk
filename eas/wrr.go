@@ -1,4 +1,4 @@
-package easpredict
+package eas
 
 type wrrscheduler struct {
 	currentWeight int
@@ -66,6 +66,9 @@ func wrrScheduler(endpoints map[string]int) wrrscheduler {
 
 func (w *wrrscheduler) schedule() string {
 	for true {
+		if w.lenS == 0 {
+			return ""
+		}
 		w.current = (w.current + 1) % w.lenS
 		if w.current == 0 {
 			w.currentWeight = w.currentWeight - w.gcdS
