@@ -57,7 +57,7 @@ func (tr *TorchRequest) AddFeedInt32(index int, shape []int64, content []int32) 
 }
 
 // AddFeedInt64 function adds int64 values input data for torchrequest
-func (tr *TorchRequest) AddFeedInt64(index int, TorchDataType torch_predict_protos.ArrayDataType, shape []int64, content []int64) {
+func (tr *TorchRequest) AddFeedInt64(index int, shape []int64, content []int64) {
 	for len(tr.RequestData.Inputs) < index+1 {
 		tr.RequestData.Inputs = append(tr.RequestData.Inputs, &torch_predict_protos.ArrayProto{})
 	}
