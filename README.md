@@ -72,22 +72,22 @@ import (
 )
 
 func main() {
-        cli := eas.NewPredictClient("1828488879222746.cn-shanghai.pai-eas.aliyuncs.com", "mnist_saved_model_example")
-        cli.SetToken("YTg2ZjE0ZjM4ZmE3OTc0NzYxZDMyNmYzMTJjZTQ1YmU0N2FjMTAyMA==")
-        cli.Init()
+	client := eas.NewPredictClient("1828488879222746.cn-shanghai.pai-eas.aliyuncs.com", "mnist_saved_model_example")
+	client.SetToken("YTg2ZjE0ZjM4ZmE3OTc0NzYxZDMyNmYzMTJjZTQ1YmU0N2FjMTAyMA==")
+	client.Init()
 
-        tfreq := eas.TFRequest{}
-        tfreq.SetSignatureName("predict_images")
-        tfreq.AddFeedFloat32("images", []int64{1, 784}, make([]float32, 784))
+	tfreq := eas.TFRequest{}
+	tfreq.SetSignatureName("predict_images")
+	tfreq.AddFeedFloat32("images", []int64{1, 784}, make([]float32, 784))
 
-        for i := 0; i < 1000; i++ {
-                resp, err := cli.TFPredict(tfreq)
-                if err != nil {
-                        fmt.Printf("failed to predict: %v", err)
-                } else {
-                        fmt.Printf("%v\n", resp)
-                }
-        }
+	for i := 0; i < 100; i++ {
+		resp, err := client.TFPredict(tfreq)
+		if err != nil {
+			fmt.Printf("failed to predict: %v", err)
+		} else {
+			fmt.Printf("%v\n", resp)
+		}
+	}
 }
 ```
 
@@ -105,15 +105,15 @@ import (
 )
 
 func main() {
-	cli := eas.NewPredictClient("1828488879222746.cn-shanghai.pai-eas.aliyuncs.com", "pytorch_resnet_example")
-	cli.SetTimeout(500)
-	cli.SetToken("ZjdjZDg1NWVlMWI2NTU5YzJiMmY5ZmE5OTBmYzZkMjI0YjlmYWVlZg==")
-	cli.Init()
+	client := eas.NewPredictClient("1828488879222746.cn-shanghai.pai-eas.aliyuncs.com", "pytorch_resnet_example")
+	client.SetTimeout(500)
+	client.SetToken("ZjdjZDg1NWVlMWI2NTU5YzJiMmY5ZmE5OTBmYzZkMjI0YjlmYWVlZg==")
+	client.Init()
 	req := eas.TorchRequest{}
 	req.AddFeedFloat32(0, []int64{1, 3, 224, 224}, make([]float32, 150528))
 	req.AddFetch(0)
 	for i := 0; i < 10; i++ {
-		resp, err := cli.TorchPredict(req)
+		resp, err := client.TorchPredict(req)
 		if err != nil {
 			fmt.Printf("failed to predict: %v", err)
 		} else {
