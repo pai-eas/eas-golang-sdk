@@ -44,18 +44,18 @@ import (
 )
 
 func main() {
-        client := eas.NewPredictClientWithConns("1828488879222746.cn-shanghai.pai-eas.aliyuncs.com", "scorecard_pmml_example", 10)
-        client.SetToken("YWFlMDYyZDNmNTc3M2I3MzMwYmY0MmYwM2Y2MTYxMTY4NzBkNzdjOQ==")
-        client.Init()
-        req := "[{\"fea1\": 1, \"fea2\": 2}]"
-        for i := 0; i < 1000; i++ {
-                resp, err := client.StringPredict(req)
-                if err != nil {
-                        fmt.Printf("failed to predict: %v\n", err.Error())
-                } else {
-                        fmt.Printf("%v\n", resp)
-                }
-        }
+	client := eas.NewPredictClient("1828488879222746.cn-shanghai.pai-eas.aliyuncs.com", "scorecard_pmml_example")
+	client.SetToken("YWFlMDYyZDNmNTc3M2I3MzMwYmY0MmYwM2Y2MTYxMTY4NzBkNzdjOQ==")
+	client.Init()
+	req := "[{\"fea1\": 1, \"fea2\": 2}]"
+	for i := 0; i < 100; i++ {
+		resp, err := client.StringPredict(req)
+		if err != nil {
+			fmt.Printf("failed to predict: %v\n", err.Error())
+		} else {
+			fmt.Printf("%v\n", resp)
+		}
+	}
 }
 ```
 
@@ -105,21 +105,21 @@ import (
 )
 
 func main() {
-        cli := eas.NewPredictClient("1828488879222746.cn-shanghai.pai-eas.aliyuncs.co", "pytorch_resnet_example")
-        cli.SetTimeout(500)
-        cli.SetToken("ZjdjZDg1NWVlMWI2NTU5YzJiMmY5ZmE5OTBmYzZkMjI0YjlmYWVlZg==")
-        cli.Init()
-        req := eas.TorchRequest{}
-        req.AddFeedFloat32(0, []int64{1, 3, 224, 224}, make([]float32, 150528))
-        req.AddFetch(0)
-        for i := 0; i < 100000000; i++ {
-                resp, err := cli.TorchPredict(req)
-                if err != nil {
-                        fmt.Printf("failed to predict: %v", err)
-                } else {
-                        fmt.Println(resp.GetTensorShape(0), resp.GetFloatVal(0))
-                }
-        }
+	cli := eas.NewPredictClient("1828488879222746.cn-shanghai.pai-eas.aliyuncs.com", "pytorch_resnet_example")
+	cli.SetTimeout(500)
+	cli.SetToken("ZjdjZDg1NWVlMWI2NTU5YzJiMmY5ZmE5OTBmYzZkMjI0YjlmYWVlZg==")
+	cli.Init()
+	req := eas.TorchRequest{}
+	req.AddFeedFloat32(0, []int64{1, 3, 224, 224}, make([]float32, 150528))
+	req.AddFetch(0)
+	for i := 0; i < 10; i++ {
+		resp, err := cli.TorchPredict(req)
+		if err != nil {
+			fmt.Printf("failed to predict: %v", err)
+		} else {
+			fmt.Println(resp.GetTensorShape(0), resp.GetFloatVal(0))
+		}
+	}
 }
 ```
 
@@ -136,7 +136,7 @@ import (
 )
 
 func main() {
-        client := eas.NewPredictClientWithConns("1828488879222746.cn-shanghai.pai-eas.aliyuncs.com", "scorecard_pmml_example", 10)
+        client := eas.NewPredictClient("1828488879222746.cn-shanghai.pai-eas.aliyuncs.com", "scorecard_pmml_example")
         client.SetToken("YWFlMDYyZDNmNTc3M2I3MzMwYmY0MmYwM2Y2MTYxMTY4NzBkNzdjOQ==")
 	client.SetEndpointType(eas.EndpointTypeDirect)
         client.Init()
@@ -165,14 +165,14 @@ import (
 )
 
 func main() {
-        client := eas.NewPredictClient("pai-eas-vpc.cn-shanghai.aliyuncs.com", "network_test")
-        client.SetToken("MDAwZDQ3NjE3OThhOTI4ODFmMjJiYzE0MDk1NWRkOGI1MmVhMGI0Yw==")
-        client.SetEndpointType(eas.EndpointTypeDirect)
-        client.setHttpTransport(&http.Transport{
-                MaxConnsPerHost:       300,
-                TLSHandshakeTimeout:   100 * time.Millisecond,
-                ResponseHeaderTimeout: 200 * time.Millisecond,
-                ExpectContinueTimeout: 200 * time.Millisecond,
-        })
+	client := eas.NewPredictClient("pai-eas-vpc.cn-shanghai.aliyuncs.com", "network_test")
+	client.SetToken("MDAwZDQ3NjE3OThhOTI4ODFmMjJiYzE0MDk1NWRkOGI1MmVhMGI0Yw==")
+	client.SetEndpointType(eas.EndpointTypeDirect)
+	client.SetHttpTransport(&http.Transport{
+		MaxConnsPerHost:       300,
+		TLSHandshakeTimeout:   100 * time.Millisecond,
+		ResponseHeaderTimeout: 200 * time.Millisecond,
+		ExpectContinueTimeout: 200 * time.Millisecond,
+	})
 }
 ```
