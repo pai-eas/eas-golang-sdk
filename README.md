@@ -136,19 +136,19 @@ import (
 )
 
 func main() {
-        client := eas.NewPredictClient("1828488879222746.cn-shanghai.pai-eas.aliyuncs.com", "scorecard_pmml_example")
-        client.SetToken("YWFlMDYyZDNmNTc3M2I3MzMwYmY0MmYwM2Y2MTYxMTY4NzBkNzdjOQ==")
+	client := eas.NewPredictClient("pai-eas-vpc.cn-shanghai.aliyuncs.com", "scorecard_pmml_example")
+	client.SetToken("YWFlMDYyZDNmNTc3M2I3MzMwYmY0MmYwM2Y2MTYxMTY4NzBkNzdjOQ==")
 	client.SetEndpointType(eas.EndpointTypeDirect)
-        client.Init()
-        req := "[{\"fea1\": 1, \"fea2\": 2}]"
-        for i := 0; i < 1000; i++ {
-                resp, err := client.StringPredict(req)
-                if err != nil {
-                        fmt.Printf("failed to predict: %v\n", err.Error())
-                } else {
-                        fmt.Printf("%v\n", resp)
-                }
-        }
+	client.Init()
+	req := "[{\"fea1\": 1, \"fea2\": 2}]"
+	for i := 0; i < 100; i++ {
+		resp, err := client.StringPredict(req)
+		if err != nil {
+			fmt.Printf("failed to predict: %v\n", err.Error())
+		} else {
+			fmt.Printf("%v\n", resp)
+		}
+	}
 }
 ```
 
