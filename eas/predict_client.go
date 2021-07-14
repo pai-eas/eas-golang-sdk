@@ -5,7 +5,11 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	stdurl "net/url"
 	"time"
+
+	"github.com/opentracing-contrib/go-stdlib/nethttp"
+	"github.com/opentracing/opentracing-go"
 )
 
 const (
@@ -59,6 +63,7 @@ type PredictClient struct {
 	serviceName        string
 	stop               bool
 	client             http.Client
+	tracer             opentracing.Tracer
 }
 
 // NewPredictClient returns an instance of PredictClient
@@ -133,6 +138,12 @@ func (p *PredictClient) SetRetryCount(cnt int) {
 // SetHttpTransport sets http transport argument for go http client
 func (p *PredictClient) SetHttpTransport(transport *http.Transport) {
 	p.client.Transport = transport
+	if p.tracer != nil {
+		openTracerTransport := &nethttp.Transport{
+			RoundTripper: p.client.Transport,
+		}
+		p.client.Transport = openTracerTransport
+	}
 }
 
 // SetTimeout set the request timeout for client, 5000ms by default
@@ -143,6 +154,17 @@ func (p *PredictClient) SetTimeout(timeout int) {
 // SetServiceName sets target service name for client
 func (p *PredictClient) SetServiceName(serviceName string) {
 	p.serviceName = serviceName
+}
+
+// SetOpenTracer sets open tracer for client
+func (p *PredictClient) SetOpenTracer(tracer opentracing.Tracer) {
+	if tracer != nil {
+		p.tracer = tracer
+		openTracerTransport := &nethttp.Transport{
+			RoundTripper: p.client.Transport,
+		}
+		p.client.Transport = openTracerTransport
+	}
 }
 
 func (p *PredictClient) tryNext(host string) string {
@@ -210,7 +232,23 @@ func (p *PredictClient) BytesPredict(requestData []byte) ([]byte, error) {
 			}
 		}
 
+		var httpTracer *nethttp.Tracer
+		if p.tracer != nil {
+			req, httpTracer = nethttp.TraceRequest(
+				p.tracer,
+				req,
+				nethttp.OperationName("Predict"),
+				nethttp.ComponentName("github.com/pai-eas/eas-golang-sdk"),
+				nethttp.URLTagFunc(func(u *stdurl.URL) string { return u.String() }),
+			)
+		}
+
 		resp, err := p.client.Do(req)
+
+		if httpTracer != nil {
+			httpTracer.Finish()
+		}
+
 		if err != nil {
 			// retry
 			if i != p.retryCount {
