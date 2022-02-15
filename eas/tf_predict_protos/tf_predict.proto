@@ -1,5 +1,7 @@
 syntax = "proto3";
 
+package tf_predict_protos;
+option go_package = "github.com/pai-eas/eas-golang-sdk/eas/tf_predict_protos";
 option cc_enable_arenas = true;
 option java_package = "com.aliyun.openservices.eas.predict.proto";
 option java_outer_classname = "PredictProtos";
