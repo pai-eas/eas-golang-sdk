@@ -26,9 +26,12 @@ func (tr *TFRequest) AddFeedFloat32(inputName string, shape []int64, content []f
 		FloatVal: content,
 	}
 	if tr.RequestData.Inputs == nil {
-		tr.RequestData.Inputs = make(map[string]*tf_predict_protos.ArrayProto)
+		tr.RequestData.Inputs = make([]*tf_predict_protos.InputEntry, 0)
 	}
-	tr.RequestData.Inputs[inputName] = &requestProto
+	tr.RequestData.Inputs = append(tr.RequestData.Inputs, &tf_predict_protos.InputEntry{
+		Key:   inputName,
+		Value: &requestProto,
+	})
 }
 
 // AddFeedFloat64 function adds double values input data for TFRequest
@@ -41,9 +44,12 @@ func (tr *TFRequest) AddFeedFloat64(inputName string, shape []int64, content []f
 		DoubleVal: content,
 	}
 	if tr.RequestData.Inputs == nil {
-		tr.RequestData.Inputs = make(map[string]*tf_predict_protos.ArrayProto)
+		tr.RequestData.Inputs = make([]*tf_predict_protos.InputEntry, 0)
 	}
-	tr.RequestData.Inputs[inputName] = &requestProto
+	tr.RequestData.Inputs = append(tr.RequestData.Inputs, &tf_predict_protos.InputEntry{
+		Key:   inputName,
+		Value: &requestProto,
+	})
 }
 
 // AddFeedInt32 function adds int values input data for TFRequest
@@ -56,9 +62,12 @@ func (tr *TFRequest) AddFeedInt32(inputName string, shape []int64, content []int
 		IntVal: content,
 	}
 	if tr.RequestData.Inputs == nil {
-		tr.RequestData.Inputs = make(map[string]*tf_predict_protos.ArrayProto)
+		tr.RequestData.Inputs = make([]*tf_predict_protos.InputEntry, 0)
 	}
-	tr.RequestData.Inputs[inputName] = &requestProto
+	tr.RequestData.Inputs = append(tr.RequestData.Inputs, &tf_predict_protos.InputEntry{
+		Key:   inputName,
+		Value: &requestProto,
+	})
 }
 
 // AddFeedInt64 function adds int64 values input data for TFRequest
@@ -71,9 +80,12 @@ func (tr *TFRequest) AddFeedInt64(inputName string, shape []int64, content []int
 		Int64Val: content,
 	}
 	if tr.RequestData.Inputs == nil {
-		tr.RequestData.Inputs = make(map[string]*tf_predict_protos.ArrayProto)
+		tr.RequestData.Inputs = make([]*tf_predict_protos.InputEntry, 0)
 	}
-	tr.RequestData.Inputs[inputName] = &requestProto
+	tr.RequestData.Inputs = append(tr.RequestData.Inputs, &tf_predict_protos.InputEntry{
+		Key:   inputName,
+		Value: &requestProto,
+	})
 }
 
 // AddFeedBool function adds boolean values input data for TFRequest
@@ -86,9 +98,12 @@ func (tr *TFRequest) AddFeedBool(inputName string, shape []int64, content []bool
 		BoolVal: content,
 	}
 	if tr.RequestData.Inputs == nil {
-		tr.RequestData.Inputs = make(map[string]*tf_predict_protos.ArrayProto)
+		tr.RequestData.Inputs = make([]*tf_predict_protos.InputEntry, 0)
 	}
-	tr.RequestData.Inputs[inputName] = &requestProto
+	tr.RequestData.Inputs = append(tr.RequestData.Inputs, &tf_predict_protos.InputEntry{
+		Key:   inputName,
+		Value: &requestProto,
+	})
 }
 
 // AddFeedString function adds string values input data for TFRequest
@@ -101,9 +116,12 @@ func (tr *TFRequest) AddFeedString(inputName string, shape []int64, content [][]
 		StringVal: content,
 	}
 	if tr.RequestData.Inputs == nil {
-		tr.RequestData.Inputs = make(map[string]*tf_predict_protos.ArrayProto)
+		tr.RequestData.Inputs = make([]*tf_predict_protos.InputEntry, 0)
 	}
-	tr.RequestData.Inputs[inputName] = &requestProto
+	tr.RequestData.Inputs = append(tr.RequestData.Inputs, &tf_predict_protos.InputEntry{
+		Key:   inputName,
+		Value: &requestProto,
+	})
 }
 
 // AddFetch adds output filter (outname) for TensorFlow request

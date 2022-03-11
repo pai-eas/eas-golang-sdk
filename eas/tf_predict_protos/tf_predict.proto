@@ -1,5 +1,7 @@
 syntax = "proto3";
 
+package tf_predict_protos;
+option go_package = "github.com/pai-eas/eas-golang-sdk/eas/tf_predict_protos";
 option cc_enable_arenas = true;
 option java_package = "com.aliyun.openservices.eas.predict.proto";
 option java_outer_classname = "PredictProtos";
@@ -66,6 +68,11 @@ message ArrayProto {
   repeated bool bool_val = 8 [packed = true];
 }
 
+message InputEntry {
+  string key = 1;
+  ArrayProto value = 2;
+}
+
 // PredictRequest specifies which TensorFlow model to run, as well as
 // how inputs are mapped to tensors and how outputs are filtered before
 // returning to user.
@@ -80,7 +87,10 @@ message PredictRequest {
   // under the key "inputs" in the model export.
   // Each alias listed in a generic signature named "inputs" should be provided
   // exactly once in order to run the prediction.
+  repeated InputEntry inputs = 2;
+  /* @see https://developers.google.com/protocol-buffers/docs/proto3#backwards_compatibility
   map<string, ArrayProto> inputs = 2;
+  */
 
   // Output filter.
   // Names specified are alias names. The mapping from aliases to real output
