@@ -1,20 +1,19 @@
 package eas
 
 import (
-	// "eas-golang-sdk/easpredict"
 	"fmt"
 	"testing"
 	"time"
 )
 
 const (
-	EndpointName = "1828488879222746.cn-shanghai.pai-eas.aliyuncs.com"
-	PMMLName = "scorecard_pmml_example"
-	PMMLToken = "YWFlMDYyZDNmNTc3M2I3MzMwYmY0MmYwM2Y2MTYxMTY4NzBkNzdjOQ=="
-	TensorflowName = "mnist_saved_model_example"
-	TensorflowToken = "YTg2ZjE0ZjM4ZmE3OTc0NzYxZDMyNmYzMTJjZTQ1YmU0N2FjMTAyMA=="
-	TorchName = "pytorch_resnet_example"
-	TorchToken = "ZjdjZDg1NWVlMWI2NTU5YzJiMmY5ZmE5OTBmYzZkMjI0YjlmYWVlZg=="
+	EndpointName    = "1828488879222746.cn-shanghai.pai-eas.aliyuncs.com"
+	PMMLName        = "scorecard_pmml_example"
+	PMMLToken       = ""
+	TensorflowName  = "mnist_saved_model_example"
+	TensorflowToken = ""
+	TorchName       = "pytorch_resnet_example"
+	TorchToken      = ""
 )
 
 func TestString(t *testing.T) {

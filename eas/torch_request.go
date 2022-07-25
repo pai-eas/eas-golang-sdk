@@ -1,9 +1,8 @@
 package eas
 
 import (
-	"github.com/pai-eas/eas-golang-sdk/eas/torch_predict_protos"
-
 	"github.com/golang/protobuf/proto"
+	"github.com/pai-eas/eas-golang-sdk/eas/types/torch_predict_protos"
 )
 
 // TorchRequest class for PyTorch data and requests

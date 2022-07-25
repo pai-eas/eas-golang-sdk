@@ -1,6 +1,8 @@
 package eas
 
-import "github.com/pai-eas/eas-golang-sdk/eas/tf_predict_protos"
+import (
+	"github.com/pai-eas/eas-golang-sdk/eas/types/tf_predict_protos"
+)
 
 // type tf_predict_protos.ArrayDataType tf_predict_protos.ArrayDataType
 
