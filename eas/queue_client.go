@@ -312,20 +312,22 @@ func boolString(b bool) string {
 }
 
 type websocketWatch struct {
-	ctx     context.Context
-	cancel  context.CancelFunc
-	conn    *websocket.Conn
-	decoder types.DataFrameDecoder
-	ch      chan types.DataFrame
+	ctx             context.Context
+	cancel          context.CancelFunc
+	conn            *websocket.Conn
+	decoder         types.DataFrameDecoder
+	pingFrameWriter io.WriteCloser
+	ch              chan types.DataFrame
 }
 
-func newWebsocketWatcher(ctx context.Context, cancel context.CancelFunc, conn *websocket.Conn, decoder types.DataFrameDecoder) types.Watcher {
+func newWebsocketWatcher(ctx context.Context, cancel context.CancelFunc, conn *websocket.Conn, pingFrameWriter io.WriteCloser, decoder types.DataFrameDecoder) types.Watcher {
 	w := &websocketWatch{
-		ctx:     ctx,
-		cancel:  cancel,
-		conn:    conn,
-		decoder: decoder,
-		ch:      make(chan types.DataFrame, 100),
+		ctx:             ctx,
+		cancel:          cancel,
+		conn:            conn,
+		decoder:         decoder,
+		pingFrameWriter: pingFrameWriter,
+		ch:              make(chan types.DataFrame, 100),
 	}
 	go w.run()
 	return w
@@ -339,10 +341,25 @@ func (w *websocketWatch) Close() {
 	w.cancel()
 }
 
+func (w *websocketWatch) pingServer() error {
+	_, err := w.pingFrameWriter.Write([]byte{})
+	return err
+}
+
 func (w *websocketWatch) run() {
 	go func() {
-		<-w.ctx.Done()
-		w.conn.Close()
+		ticker := time.NewTicker(time.Second)
+		defer ticker.Stop()
+		defer w.pingFrameWriter.Close()
+		for {
+			select {
+			case <-w.ctx.Done():
+				w.conn.Close()
+				return
+			case <-ticker.C:
+				w.pingServer()
+			}
+		}
 	}()
 	defer w.cancel()
 	defer close(w.ch)
@@ -445,6 +462,7 @@ func (q *QueueClient) Watch(ctx context.Context, index, window uint64, indexOnly
 		header := http.Header{}
 		attr, err := q.getAttr(false)
 		if err != nil {
+			cancel()
 			return nil, err
 		}
 		uidHeader := attr[types.UserIdentifyHeader]
@@ -462,7 +480,12 @@ func (q *QueueClient) Watch(ctx context.Context, index, window uint64, indexOnly
 			cancel()
 			return nil, err
 		}
-		return newWebsocketWatcher(ctx, cancel, conn, q.DCodec), nil
+		ping, err := conn.NewFrameWriter(websocket.PingFrame)
+		if err != nil {
+			cancel()
+			return nil, err
+		}
+		return newWebsocketWatcher(ctx, cancel, conn, ping, q.DCodec), nil
 
 	} else {
 		// default http watch.
