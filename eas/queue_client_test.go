@@ -13,7 +13,7 @@ const (
 	QueueEndpoint  = "1828488879222746.cn-shanghai.pai-eas.aliyuncs.com"
 	InputQueueName = "test_group.qservice"
 	SinkQueueName  = "test_group.qservice/sink"
-	QueueToken     = "YmE3NDkyMzdiMzNmMGM3ZmE4ZmNjZDk0M2NiMDA3OTZmNzc1MTUxNg=="
+	QueueToken     = ""
 )
 
 type QueueClientTestCase struct {
