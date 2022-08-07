@@ -451,8 +451,9 @@ func (w *reconnectWatcher) run(config *websocket.Config, decoder types.DataFrame
 					return
 				}
 			}
+		} else {
+			w.userChan <- df
 		}
-		w.userChan <- df
 	}
 }
 
