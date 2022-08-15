@@ -89,30 +89,25 @@ func NewQueueClient(endpoint, queueName, token string) (*QueueClient, error) {
 	return cli, nil
 }
 
-func must(fn func() error) {
-	if err := fn(); err != nil {
-		panic(err)
-	}
-}
-
 func readMessage(reader io.Reader) string {
 	b, err := ioutil.ReadAll(reader)
 	if err != nil {
-		panic(err)
+		return err.Error()
 	}
 	return string(b)
 }
 
 func (q *QueueClient) getAttr(force bool) (types.Attributes, error) {
+	var err error
 	if q.attr == nil {
-		q.once.Do(func() { must(q.obtainAttr) })
+		q.once.Do(func() { err = q.obtainAttr() })
 	} else if force {
-		if err := q.obtainAttr(); err != nil {
+		if err = q.obtainAttr(); err != nil {
 			return q.attr, fmt.Errorf("failed to obtain attributes, error: %v", err)
 		}
 	}
 
-	return q.attr, nil
+	return q.attr, err
 }
 
 func (q *QueueClient) obtainAttr() error {
@@ -147,21 +142,22 @@ func (q *QueueClient) obtainAttr() error {
 }
 
 // withIdentity populates user and group id into request.
-func (q *QueueClient) withIdentity(req *http.Request) {
+func (q *QueueClient) withIdentity(req *http.Request) error {
 	attr, err := q.getAttr(false)
 	if err != nil {
-		// todo
+		return err
 	}
 	uidHeader := attr[types.UserIdentifyHeader]
 	gidHeader := attr[types.GroupIdentifyHeader]
 	if len(uidHeader) == 0 {
-		panic("malformed attributes")
+		return fmt.Errorf("malformed attributes: %v", attr)
 	} else {
 		req.Header.Add(uidHeader, q.user.Uid())
 	}
 	if len(gidHeader) > 0 {
 		req.Header.Add(gidHeader, q.user.Gid())
 	}
+	return nil
 }
 
 // withIdentity populates user and group id into request.
@@ -182,7 +178,9 @@ func (q *QueueClient) Truncate(ctx context.Context, index uint64) error {
 	if err != nil {
 		return err
 	}
-	q.withIdentity(req)
+	if err := q.withIdentity(req); err != nil {
+		return err
+	}
 	q.withAuthorization(req)
 	resp, err := q.httpClient.Do(req)
 	if err != nil {
@@ -208,7 +206,9 @@ func (q *QueueClient) End(ctx context.Context, force bool) error {
 	if err != nil {
 		return err
 	}
-	q.withIdentity(req)
+	if err := q.withIdentity(req); err != nil {
+		return err
+	}
 	q.withAuthorization(req)
 	resp, err := q.httpClient.Do(req)
 	if err != nil {
@@ -233,7 +233,9 @@ func (q *QueueClient) Put(ctx context.Context, data []byte, tags types.Tags) (in
 	if err != nil {
 		return 0, requestId, err
 	}
-	q.withIdentity(req)
+	if err := q.withIdentity(req); err != nil {
+		return 0, requestId, err
+	}
 	q.withAuthorization(req)
 	resp, err := q.httpClient.Do(req)
 	if err != nil {
@@ -284,7 +286,9 @@ func (q *QueueClient) Get(ctx context.Context, index uint64, length int, timeout
 		return ret, err
 	}
 	req.Header.Set("Accept", q.DCodec.MediaType())
-	q.withIdentity(req)
+	if err := q.withIdentity(req); err != nil {
+		return ret, err
+	}
 	q.withAuthorization(req)
 	resp, err := q.httpClient.Do(req)
 	if err != nil {
@@ -311,7 +315,7 @@ func boolString(b bool) string {
 	}
 }
 
-type websocketWatch struct {
+type websocketWatcher struct {
 	ctx             context.Context
 	cancel          context.CancelFunc
 	conn            *websocket.Conn
@@ -320,33 +324,41 @@ type websocketWatch struct {
 	ch              chan types.DataFrame
 }
 
-func newWebsocketWatcher(ctx context.Context, cancel context.CancelFunc, conn *websocket.Conn, pingFrameWriter io.WriteCloser, decoder types.DataFrameDecoder) types.Watcher {
-	w := &websocketWatch{
+func newWebsocketWatcher(ctx context.Context, cancel context.CancelFunc, config *websocket.Config, decoder types.DataFrameDecoder) (types.Watcher, error) {
+	conn, err := websocket.DialConfig(config)
+	if err != nil {
+		return nil, err
+	}
+	ping, err := conn.NewFrameWriter(websocket.PingFrame)
+	if err != nil {
+		return nil, err
+	}
+	w := &websocketWatcher{
 		ctx:             ctx,
 		cancel:          cancel,
 		conn:            conn,
 		decoder:         decoder,
-		pingFrameWriter: pingFrameWriter,
+		pingFrameWriter: ping,
 		ch:              make(chan types.DataFrame, 100),
 	}
 	go w.run()
-	return w
+	return w, nil
 }
 
-func (w *websocketWatch) FrameChan() <-chan types.DataFrame {
+func (w *websocketWatcher) FrameChan() <-chan types.DataFrame {
 	return w.ch
 }
 
-func (w *websocketWatch) Close() {
+func (w *websocketWatcher) Close() {
 	w.cancel()
 }
 
-func (w *websocketWatch) pingServer() error {
+func (w *websocketWatcher) pingServer() error {
 	_, err := w.pingFrameWriter.Write([]byte{})
 	return err
 }
 
-func (w *websocketWatch) run() {
+func (w *websocketWatcher) run() {
 	go func() {
 		ticker := time.NewTicker(time.Second)
 		defer ticker.Stop()
@@ -376,6 +388,72 @@ func (w *websocketWatch) run() {
 			df.Message = fmt.Sprintf("failed to decode message: %v", err)
 		}
 		w.ch <- df
+	}
+}
+
+type reconnectWatcher struct {
+	watcher  types.Watcher
+	userChan chan types.DataFrame
+	ctx      context.Context
+	cancel   context.CancelFunc
+}
+
+func newReconnectWatcher(ctx context.Context, cancel context.CancelFunc, config *websocket.Config, decoder types.DataFrameDecoder) (types.Watcher, error) {
+	// TODO it can be more generic to cover different kind of watcher
+	wCtx, wCancel := context.WithCancel(context.Background())
+	websocketWatcher, err := newWebsocketWatcher(wCtx, wCancel, config, decoder)
+	if err != nil {
+		return nil, err
+	}
+	w := &reconnectWatcher{
+		watcher:  websocketWatcher,
+		userChan: make(chan types.DataFrame, 100),
+		ctx:      ctx,
+		cancel:   cancel,
+	}
+	go w.run(config, decoder)
+	return w, nil
+}
+
+func (w *reconnectWatcher) FrameChan() <-chan types.DataFrame {
+	return w.userChan
+}
+
+func (w *reconnectWatcher) Close() {
+	w.cancel()
+	w.watcher.Close()
+}
+
+func (w *reconnectWatcher) run(config *websocket.Config, decoder types.DataFrameDecoder) {
+	defer close(w.userChan)
+	for {
+		df, ok := <-w.watcher.FrameChan()
+		// connection closed
+		if !ok {
+			// connection was closed by upstream unexpectedly, try to reconnect
+			ctx, cancel := context.WithCancel(context.Background())
+			ticker := time.NewTicker(time.Second)
+
+		loop:
+			for {
+				select {
+				case <-ticker.C:
+					// try to reconnect every 100ms
+					watcher, err := newWebsocketWatcher(ctx, cancel, config, decoder)
+					if err != nil {
+						fmt.Printf("Connect to upstream error: %v, retry...\n", err)
+						continue
+					}
+					w.watcher = watcher
+					break loop
+				case <-w.ctx.Done():
+					// watcher was closed by user
+					return
+				}
+			}
+		} else {
+			w.userChan <- df
+		}
 	}
 }
 
@@ -460,7 +538,7 @@ func (q *QueueClient) Watch(ctx context.Context, index, window uint64, indexOnly
 			return nil, err
 		}
 		header := http.Header{}
-		attr, err := q.getAttr(false)
+		attr, err := q.getAttr(true)
 		if err != nil {
 			cancel()
 			return nil, err
@@ -475,17 +553,11 @@ func (q *QueueClient) Watch(ctx context.Context, index, window uint64, indexOnly
 			header.Set(gidHeader, q.user.Gid())
 		}
 		config.Header = header
-		conn, err := websocket.DialConfig(config)
+		watcher, err := newReconnectWatcher(ctx, cancel, config, q.DCodec)
 		if err != nil {
 			cancel()
-			return nil, err
 		}
-		ping, err := conn.NewFrameWriter(websocket.PingFrame)
-		if err != nil {
-			cancel()
-			return nil, err
-		}
-		return newWebsocketWatcher(ctx, cancel, conn, ping, q.DCodec), nil
+		return watcher, err
 
 	} else {
 		// default http watch.
@@ -495,7 +567,9 @@ func (q *QueueClient) Watch(ctx context.Context, index, window uint64, indexOnly
 			return nil, err
 		}
 		req.Header.Set("Accept", q.DCodec.MediaType())
-		q.withIdentity(req)
+		if err := q.withIdentity(req); err != nil {
+			return nil, err
+		}
 		q.withAuthorization(req)
 		resp, err := q.httpClient.Do(req)
 		if err != nil {
@@ -527,7 +601,9 @@ func (q *QueueClient) Commit(ctx context.Context, indexes ...uint64) error {
 	if err != nil {
 		return err
 	}
-	q.withIdentity(req)
+	if err := q.withIdentity(req); err != nil {
+		return err
+	}
 	q.withAuthorization(req)
 	resp, err := q.httpClient.Do(req)
 	if err != nil {
@@ -554,7 +630,9 @@ func (q *QueueClient) Del(ctx context.Context, indexes ...uint64) error {
 	if err != nil {
 		return err
 	}
-	q.withIdentity(req)
+	if err := q.withIdentity(req); err != nil {
+		return err
+	}
 	q.withAuthorization(req)
 	resp, err := q.httpClient.Do(req)
 	if err != nil {

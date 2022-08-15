@@ -2,6 +2,7 @@ package eas
 
 import (
 	"context"
+	"fmt"
 	"github.com/pai-eas/eas-golang-sdk/eas/types"
 	"strconv"
 	"testing"
@@ -167,4 +168,43 @@ func TestWatchWithManualCommit(t *testing.T) {
 	attrs, err := c.sinkQueue.Attributes()
 	assertNoError(t, err)
 	assertEqual(t, attrs["stream.length"], "0")
+}
+
+func TestWatchWithReconnect(t *testing.T) {
+	c := getQueueClient(t)
+
+	c.truncate(t)
+
+	ctx, cancel := context.WithCancel(context.Background())
+
+	go func() {
+		i := 0
+		for {
+			select {
+			case <-time.NewTicker(time.Microsecond * 1).C:
+				_, _, err := c.sinkQueue.Put(context.Background(), []byte(strconv.Itoa(i)), types.Tags{})
+				assertNoError(t, err)
+				i += 1
+			case <-ctx.Done():
+				break
+			}
+		}
+	}()
+
+	watcher, err := c.sinkQueue.Watch(context.Background(), 0, 5, false, false)
+	assertNoError(t, err)
+
+	for i := 0; i < 100; i++ {
+		df, ok := <-watcher.FrameChan()
+		assertEqual(t, ok, true)
+		err := c.sinkQueue.Commit(context.Background(), df.Index.Uint64())
+		if err != nil {
+			fmt.Printf("commit id: %v failed: %v", df.Index, err)
+		}
+		assertNoError(t, err)
+		assertEqual(t, string(df.Data), strconv.Itoa(i))
+	}
+
+	watcher.Close()
+	cancel()
 }
