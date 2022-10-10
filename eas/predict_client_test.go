@@ -22,7 +22,7 @@ func TestString(t *testing.T) {
 	client.SetToken(PMMLToken)
 	client.Init()
 	req := "[{}]"
-	client.SetHeader("headerName", "headerValue")
+	client.AddHeader("headerName", "headerValue")
 	resp, err := client.StringPredict(req)
 	if err != nil {
 		t.Fatalf(err.Error())

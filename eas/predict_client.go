@@ -134,7 +134,7 @@ func (p *PredictClient) SetToken(token string) {
 	p.token = token
 }
 
-func (p *PredictClient) SetHeader(headerName, headerValue string) {
+func (p *PredictClient) AddHeader(headerName, headerValue string) {
 	p.headers[headerName] = headerValue
 }
 
