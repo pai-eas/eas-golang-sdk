@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"sync/atomic"
 	"time"
 )
 
@@ -58,7 +59,7 @@ type PredictClient struct {
 	endpointType       string
 	endpointName       string
 	serviceName        string
-	stop               bool
+	stop               int32
 	client             http.Client
 }
 
@@ -68,6 +69,7 @@ func NewPredictClient(endpointName string, serviceName string) *PredictClient {
 		endpointName: endpointName,
 		serviceName:  serviceName,
 		retryCount:   5,
+		stop:         0,
 		headers:      map[string]string{},
 		client: http.Client{
 			Timeout: 5000 * time.Millisecond,
@@ -97,6 +99,11 @@ func (p *PredictClient) Init() error {
 	return nil
 }
 
+//  Shutdown after called this client instance should not be used again
+func (p *PredictClient) Shutdown() {
+	atomic.StoreInt32(&(p.stop), 1)
+}
+
 // syncHandler synchronizes the services's endpoints from the upstream discovery server periodically
 func (p *PredictClient) syncHandler() {
 	p.endpoint.Sync()
@@ -104,7 +111,7 @@ func (p *PredictClient) syncHandler() {
 		select {
 		// Sync endpoints from upstream every 3 seconds
 		case <-time.NewTimer(time.Second * 3).C:
-			if p.stop {
+			if 1 == atomic.LoadInt32(&(p.stop)) {
 				break
 			}
 			p.endpoint.Sync()
