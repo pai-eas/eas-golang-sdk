@@ -55,6 +55,7 @@ type PredictClient struct {
 	maxConnectionCount int
 	token              string
 	headers            map[string]string
+	host               string
 	endpoint           Endpoint
 	endpointType       string
 	endpointName       string
@@ -136,6 +137,10 @@ func (p *PredictClient) SetToken(token string) {
 
 func (p *PredictClient) AddHeader(headerName, headerValue string) {
 	p.headers[headerName] = headerValue
+}
+
+func (p *PredictClient) SetHost(host string) {
+	p.host = host
 }
 
 // SetRetryCount sets max retry count for client
@@ -225,6 +230,10 @@ func (p *PredictClient) BytesPredict(requestData []byte) ([]byte, error) {
 
 		for headerName, headerValue := range p.headers {
 			req.Header.Set(headerName, headerValue)
+		}
+
+		if p.host != "" {
+			req.Host = p.host
 		}
 
 		resp, err := p.client.Do(req)
