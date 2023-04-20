@@ -73,6 +73,8 @@ type QueueClient struct {
 type queueOptions struct {
 	extraHeaders map[string]string
 	basePath     string
+	uid          string
+	gid          string
 }
 
 type QueueOption func(*queueOptions)
@@ -89,6 +91,18 @@ func WithBasePath(basePath string) QueueOption {
 	}
 }
 
+func WithUserId(uid string) QueueOption {
+	return func(o *queueOptions) {
+		o.uid = uid
+	}
+}
+
+func WithGroupId(gid string) QueueOption {
+	return func(o *queueOptions) {
+		o.gid = gid
+	}
+}
+
 func NewQueueClient(endpoint, queueName, token string, opts ...QueueOption) (*QueueClient, error) {
 	queueOpt := &queueOptions{basePath: DefaultBasePath}
 	for _, opt := range opts {
@@ -102,12 +116,16 @@ func NewQueueClient(endpoint, queueName, token string, opts ...QueueOption) (*Qu
 	if len(u.Scheme) == 0 {
 		u.Scheme = "http"
 	}
-	uid := uuid.New().String()
-	gid := DefaultGroupName
+	if len(queueOpt.uid) == 0 {
+		queueOpt.uid = uuid.New().String()
+	}
+	if len(queueOpt.gid) == 0 {
+		queueOpt.gid = DefaultGroupName
+	}
 	cli := &QueueClient{
 		baseUrl:        u,
 		httpClient:     &http.Client{},
-		user:           NewQueueUser(uid, gid, token),
+		user:           NewQueueUser(queueOpt.uid, queueOpt.gid, token),
 		WebsocketWatch: true, // Watch through websocket by default
 		extraHeader:    queueOpt.extraHeaders,
 		DCodec:         types.DataFrameCodecFor(types.ContentTypeProtobuf),
