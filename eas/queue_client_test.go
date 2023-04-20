@@ -10,9 +10,9 @@ import (
 )
 
 const (
-	QueueEndpoint  = "1828488879222746.cn-shanghai.pai-eas.aliyuncs.com"
-	InputQueueName = "test_group.qservice"
-	SinkQueueName  = "test_group.qservice/sink"
+	QueueEndpoint  = "http://localhost:3030"
+	InputQueueName = ""
+	SinkQueueName  = "sink"
 	QueueToken     = ""
 )
 
@@ -39,9 +39,9 @@ func getQueueClient(t *testing.T) *QueueClientTestCase {
 	if testCase == nil {
 		testCase = &QueueClientTestCase{}
 		var err error
-		testCase.inputQueue, err = NewQueueClient(QueueEndpoint, InputQueueName, QueueToken)
+		testCase.inputQueue, err = NewQueueClient(QueueEndpoint, InputQueueName, QueueToken, WithBasePath(""))
 		assertNoError(t, err)
-		testCase.sinkQueue, err = NewQueueClient(QueueEndpoint, SinkQueueName, QueueToken)
+		testCase.sinkQueue, err = NewQueueClient(QueueEndpoint, SinkQueueName, QueueToken, WithBasePath(""))
 		assertNoError(t, err)
 	}
 	return testCase

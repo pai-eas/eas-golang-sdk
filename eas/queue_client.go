@@ -8,9 +8,9 @@ import (
 	"github.com/pai-eas/eas-golang-sdk/eas/types"
 	"golang.org/x/net/websocket"
 	"io"
-	"io/ioutil"
 	"net/http"
 	"net/url"
+	"path"
 	"strconv"
 	"strings"
 	"sync"
@@ -20,6 +20,8 @@ import (
 const (
 	HeaderRequestId     = "X-Eas-Queueservice-Request-Id"
 	HeaderAuthorization = "Authorization"
+
+	DefaultBasePath = "/api/predict"
 
 	DefaultGroupName = "eas"
 )
@@ -55,6 +57,8 @@ type QueueClient struct {
 	// base url of queue server.
 	baseUrl *url.URL
 
+	extraHeader map[string]string
+
 	user types.User
 
 	WebsocketWatch bool
@@ -66,8 +70,31 @@ type QueueClient struct {
 	ACodec types.AttributesCodec
 }
 
-func NewQueueClient(endpoint, queueName, token string) (*QueueClient, error) {
-	baseUrl := strings.Join([]string{endpoint, "api/predict", queueName}, "/")
+type queueOptions struct {
+	extraHeaders map[string]string
+	basePath     string
+}
+
+type QueueOption func(*queueOptions)
+
+func WithExtraHeaders(extraHeaders map[string]string) QueueOption {
+	return func(o *queueOptions) {
+		o.extraHeaders = extraHeaders
+	}
+}
+
+func WithBasePath(basePath string) QueueOption {
+	return func(o *queueOptions) {
+		o.basePath = basePath
+	}
+}
+
+func NewQueueClient(endpoint, queueName, token string, opts ...QueueOption) (*QueueClient, error) {
+	queueOpt := &queueOptions{basePath: DefaultBasePath}
+	for _, opt := range opts {
+		opt(queueOpt)
+	}
+	baseUrl := endpoint + path.Join("/", queueOpt.basePath, queueName)
 	u, err := url.Parse(baseUrl)
 	if err != nil {
 		return nil, err
@@ -82,6 +109,7 @@ func NewQueueClient(endpoint, queueName, token string) (*QueueClient, error) {
 		httpClient:     &http.Client{},
 		user:           NewQueueUser(uid, gid, token),
 		WebsocketWatch: true, // Watch through websocket by default
+		extraHeader:    queueOpt.extraHeaders,
 		DCodec:         types.DataFrameCodecFor(types.ContentTypeProtobuf),
 		ACodec:         types.AttributesCodecFor(types.ContentTypeProtobuf),
 	}
@@ -90,7 +118,7 @@ func NewQueueClient(endpoint, queueName, token string) (*QueueClient, error) {
 }
 
 func readMessage(reader io.Reader) string {
-	b, err := ioutil.ReadAll(reader)
+	b, err := io.ReadAll(reader)
 	if err != nil {
 		return err.Error()
 	}
@@ -126,7 +154,7 @@ func (q *QueueClient) obtainAttr() error {
 	if err != nil {
 		return err
 	}
-	body, err := ioutil.ReadAll(resp.Body)
+	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return err
 	}
@@ -167,6 +195,28 @@ func (q *QueueClient) withAuthorization(req *http.Request) {
 	}
 }
 
+func (q *QueueClient) withPriority(req *http.Request, prio types.Priority) error {
+	if prio > 0 {
+		attr, err := q.getAttr(false)
+		if err != nil {
+			return err
+		}
+		ph, ok := attr[types.PriorityHeader]
+		if !ok {
+			return nil
+		}
+		req.Header.Add(ph, strconv.FormatInt(int64(prio), 10))
+	}
+	return nil
+}
+
+func (q *QueueClient) AddExtraHeaders(header http.Header) {
+	for key, val := range q.extraHeader {
+		header.Set(key, val)
+	}
+}
+
+// Truncate truncates the queue to the given index, the specified index is not included.
 func (q *QueueClient) Truncate(ctx context.Context, index uint64) error {
 	// make a copy of base url.
 	u := *q.baseUrl
@@ -221,7 +271,14 @@ func (q *QueueClient) End(ctx context.Context, force bool) error {
 	return nil
 }
 
-func (q *QueueClient) Put(ctx context.Context, data []byte, tags types.Tags) (index uint64, requestId string, err error) {
+// Put puts data into queue. It returns the index of the data in queue, and generated request id.
+func (q *QueueClient) Put(ctx context.Context, data []byte, tags types.Tags) (uint64, string, error) {
+	return q.PutWithPriority(ctx, data, tags, 0)
+}
+
+// PutWithPriority puts data into queue with priority. It returns the index of the data in queue, and generated request id.
+// The prioritized data will be received by Watcher before normal data.
+func (q *QueueClient) PutWithPriority(ctx context.Context, data []byte, tags types.Tags, prio types.Priority) (index uint64, requestId string, err error) {
 	// make a copy of base url.
 	u := *q.baseUrl
 	qe := u.Query()
@@ -237,11 +294,15 @@ func (q *QueueClient) Put(ctx context.Context, data []byte, tags types.Tags) (in
 		return 0, requestId, err
 	}
 	q.withAuthorization(req)
+	if err := q.withPriority(req, prio); err != nil {
+		return 0, requestId, err
+	}
+	q.AddExtraHeaders(req.Header)
 	resp, err := q.httpClient.Do(req)
 	if err != nil {
 		return 0, requestId, err
 	}
-	body, err := ioutil.ReadAll(resp.Body)
+	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return 0, requestId, err
 	}
@@ -249,7 +310,7 @@ func (q *QueueClient) Put(ctx context.Context, data []byte, tags types.Tags) (in
 	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusNoContent {
 		return 0, requestId, fmt.Errorf("visiting: %s, unexpected status code: %d, message: %s", u.String(), resp.StatusCode, string(body))
 	}
-
+	defer resp.Body.Close()
 	index, err = strconv.ParseUint(string(body), 0, 64)
 	if err != nil {
 		return 0, requestId, err
@@ -257,14 +318,23 @@ func (q *QueueClient) Put(ctx context.Context, data []byte, tags types.Tags) (in
 	return index, requestId, nil
 }
 
+// GetByIndex gets data from queue by index,  make convenience wrapper for Get.
 func (q *QueueClient) GetByIndex(ctx context.Context, index uint64) (dfs []types.DataFrame, err error) {
 	return q.Get(ctx, index, 1, time.Duration(0), true, types.Tags{})
 }
 
+// GetByRequestId gets data from queue by request id,  make convenience wrapper for Get.
 func (q *QueueClient) GetByRequestId(ctx context.Context, requestId string) (dfs []types.DataFrame, err error) {
 	return q.Get(ctx, 0, 1, time.Duration(0), true, types.Tags{"requestId": requestId})
 }
 
+// Get gets data from queue, it returns the data frames and error.
+// Parameters:
+//   - index: the start point to get data, if index is 0, it will search from the queue head.
+//   - length: the number of data frames to get.
+//   - timeout: the timeout duration to wait for data, if timeout is 0, it will return immediately.
+//   - autoDelete: if autoDelete is true, the data will be deleted from queue after it is read.
+//   - tags: the tags to filter data.
 func (q *QueueClient) Get(ctx context.Context, index uint64, length int, timeout time.Duration, autoDelete bool, tags types.Tags) (dfs []types.DataFrame, err error) {
 	var ret []types.DataFrame
 	u := *q.baseUrl
@@ -295,7 +365,7 @@ func (q *QueueClient) Get(ctx context.Context, index uint64, length int, timeout
 		return ret, err
 	}
 
-	data, err := ioutil.ReadAll(resp.Body)
+	data, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return ret, err
 	}
@@ -431,7 +501,6 @@ func (w *reconnectWatcher) run(config *websocket.Config, decoder types.DataFrame
 		// connection closed
 		if !ok {
 			// connection was closed by upstream unexpectedly, try to reconnect
-			ctx, cancel := context.WithCancel(context.Background())
 			ticker := time.NewTicker(time.Second)
 
 		loop:
@@ -439,7 +508,7 @@ func (w *reconnectWatcher) run(config *websocket.Config, decoder types.DataFrame
 				select {
 				case <-ticker.C:
 					// try to reconnect every 100ms
-					watcher, err := newWebsocketWatcher(ctx, cancel, config, decoder)
+					watcher, err := newWebsocketWatcher(w.ctx, w.cancel, config, decoder)
 					if err != nil {
 						fmt.Printf("Connect to upstream error: %v, retry...\n", err)
 						continue
@@ -520,6 +589,17 @@ func (h *httpWatcher) run() {
 }
 
 func (q *QueueClient) Watch(ctx context.Context, index, window uint64, indexOnly bool, autocommit bool) (types.Watcher, error) {
+	return q.WatchByTag(ctx, index, window, indexOnly, autocommit, types.Tags{})
+}
+
+// WatchByTag returns a Watcher which can be used to receive data from the queue in streaming fashion.
+// Parameters:
+//   - index: the index to start watching from.
+//   - window: the window size to watch.
+//   - indexOnly: if true, only the index will be returned, otherwise the whole data frame will be returned.
+//   - autocommit: if true, the index will be automatically committed after the data frame is received.
+//   - tags: the tags to watch.
+func (q *QueueClient) WatchByTag(ctx context.Context, index, window uint64, indexOnly bool, autocommit bool, tags types.Tags) (types.Watcher, error) {
 	ctx, cancel := context.WithCancel(ctx)
 	u := *q.baseUrl
 	eq := u.Query()
@@ -528,6 +608,13 @@ func (q *QueueClient) Watch(ctx context.Context, index, window uint64, indexOnly
 	eq.Set("_index_only_", boolString(indexOnly))
 	eq.Set("_auto_commit_", boolString(autocommit))
 	eq.Set("_watch_", boolString(true))
+	if err := tags.Validate(); err != nil {
+		cancel()
+		return nil, err
+	}
+	for key, val := range tags {
+		eq.Set(key, val)
+	}
 	u.RawQuery = eq.Encode()
 	if q.WebsocketWatch {
 		// use websocket watch.
@@ -568,6 +655,7 @@ func (q *QueueClient) Watch(ctx context.Context, index, window uint64, indexOnly
 		}
 		req.Header.Set("Accept", q.DCodec.MediaType())
 		if err := q.withIdentity(req); err != nil {
+			cancel()
 			return nil, err
 		}
 		q.withAuthorization(req)
@@ -578,7 +666,7 @@ func (q *QueueClient) Watch(ctx context.Context, index, window uint64, indexOnly
 		}
 		if resp.StatusCode != 200 {
 			cancel()
-			content, _ := ioutil.ReadAll(resp.Body)
+			content, _ := io.ReadAll(resp.Body)
 			return nil, fmt.Errorf("unexpected status code: %d, message: %s", resp.StatusCode, string(content))
 		}
 		reader := types.NewLengthDelimitedFrameReader(resp.Body)
@@ -586,6 +674,7 @@ func (q *QueueClient) Watch(ctx context.Context, index, window uint64, indexOnly
 	}
 }
 
+// Commit commits the indexes to the queue, as the result, the data in queue will not be delivered again.
 func (q *QueueClient) Commit(ctx context.Context, indexes ...uint64) error {
 	// make a copy of base url.
 	u := *q.baseUrl
@@ -616,6 +705,40 @@ func (q *QueueClient) Commit(ctx context.Context, indexes ...uint64) error {
 	return nil
 }
 
+func (q *QueueClient) Negative(ctx context.Context, code types.Code, reason string, indexes ...uint64) error {
+	// make a copy of base url.
+	u := *q.baseUrl
+	var indexStr []string
+	for _, idx := range indexes {
+		indexStr = append(indexStr, strconv.FormatUint(idx, 10))
+	}
+	eq := u.Query()
+	eq.Set("_indexes_", strings.Join(indexStr, ","))
+	eq.Set("_negative_", strconv.FormatBool(true))
+	u.RawQuery = eq.Encode()
+	formData := url.Values{"_reason_": {reason}, "_code_": {code.String()}}
+	req, err := http.NewRequestWithContext(ctx, http.MethodPut, u.String(), strings.NewReader(formData.Encode()))
+	if err != nil {
+		return err
+	}
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	if err := q.withIdentity(req); err != nil {
+		return err
+	}
+	q.withAuthorization(req)
+	q.AddExtraHeaders(req.Header)
+	resp, err := q.httpClient.Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("visiting: %s, unexpected status code %d, message: %s", u.String(), resp.StatusCode, readMessage(resp.Body))
+	}
+	return nil
+}
+
+// Del deletes the indexes from the queue, the content of the indexes will also be deleted.
 func (q *QueueClient) Del(ctx context.Context, indexes ...uint64) error {
 	// make a copy of base url.
 	u := *q.baseUrl
