@@ -3,15 +3,38 @@ package types
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"math"
+	"regexp"
+	"sort"
 	"strconv"
 	"strings"
-	"time"
 )
 
 type Tags map[string]string
+
+func (t Tags) String() string {
+	var allKeys []string
+	for key := range t {
+		allKeys = append(allKeys, key)
+	}
+	sort.Strings(allKeys)
+	var sb strings.Builder
+	var count int
+	sb.WriteString("tags")
+	sb.WriteByte('[')
+	for _, key := range allKeys {
+		if count > 0 {
+			sb.WriteByte(' ')
+		}
+		sb.WriteString(key + "=" + t[key])
+		count++
+	}
+	sb.WriteByte(']')
+	return sb.String()
+}
 
 func (t Tags) Validate() error {
 	if len(t) == 0 {
@@ -164,137 +187,6 @@ func LargestIndex(dfs []DataFrame) Index {
 	return max
 }
 
-type Range struct {
-	LeftInclude  bool
-	RightInclude bool
-	PositiveInf  bool
-
-	Begin uint64
-	End   uint64
-}
-
-func ParseRange(input string) (Range, error) {
-	const (
-		stateBegin = iota
-		stateEnd
-		stateLVal
-		stateRVal
-		stateDelim
-		stateInf
-	)
-	var (
-		err             error
-		state           = stateBegin
-		result          = Range{}
-		lval, rval, inf []rune
-	)
-	// remove all spaces.
-	for i, c := range strings.ReplaceAll(input, " ", "") {
-		switch state {
-		case stateBegin:
-			switch c {
-			case '(':
-				result.LeftInclude = false
-				state = stateLVal
-			case '[':
-				result.LeftInclude = true
-				state = stateLVal
-			default:
-				return result, fmt.Errorf("invalid character '%c' at index %d", c, i)
-			}
-		case stateLVal:
-			switch c {
-			case '0', '1', '2', '3', '4', '5', '6', '7', '8', '9':
-				lval = append(lval, c)
-			case ',':
-				if len(lval) == 0 {
-					return result, fmt.Errorf("malformed range left value")
-				}
-				state = stateDelim
-			default:
-				return result, fmt.Errorf("invalid character '%c' at index %d", c, i)
-			}
-		case stateDelim:
-			result.Begin, err = strconv.ParseUint(string(lval), 10, 64)
-			if err != nil {
-				return result, err
-			}
-			switch c {
-			case '0', '1', '2', '3', '4', '5', '6', '7', '8', '9':
-				rval = append(rval, c)
-				state = stateRVal
-			case '+', 'i', 'I':
-				state = stateInf
-			default:
-				return result, fmt.Errorf("invalid character '%c' at index %d", c, i)
-			}
-		case stateRVal:
-			switch c {
-			case '0', '1', '2', '3', '4', '5', '6', '7', '8', '9':
-				rval = append(rval, c)
-			case ')', ']':
-				state = stateEnd
-				result.End, err = strconv.ParseUint(string(rval), 10, 64)
-				if err != nil {
-					return result, err
-				}
-				switch c {
-				case ']':
-					result.RightInclude = true
-				case ')':
-					result.RightInclude = false
-				}
-			default:
-				return result, fmt.Errorf("invalid character '%c' at index %d", c, i)
-			}
-		case stateInf:
-			switch c {
-			case 'i', 'n', 'f', '+':
-				inf = append(inf, c)
-			case ')':
-				state = stateEnd
-				if string(inf) == "+inf" || string(inf) == "inf" || string(inf) == "+Inf" || string(inf) == "Inf" {
-					result.PositiveInf = true
-				} else {
-					return result, fmt.Errorf("invalid symbol '%s'", string(inf))
-				}
-			default:
-				return result, fmt.Errorf("invalid character '%c' at index %d", c, i)
-			}
-		case stateEnd:
-			return result, fmt.Errorf("invalid character '%c' at index %d", c, i)
-		}
-	}
-	return result, nil
-}
-
-func (r Range) String() string {
-	var sb strings.Builder
-	li := "("
-	ri := ")"
-	if r.LeftInclude {
-		li = "["
-	}
-	if r.RightInclude && !r.PositiveInf {
-		ri = "]"
-	}
-
-	sb.WriteString(li)
-	sb.WriteString(fmt.Sprintf("%d", r.Begin))
-	sb.WriteRune(',')
-	if r.PositiveInf {
-		sb.WriteString("+inf")
-	} else {
-		sb.WriteString(fmt.Sprintf("%d", r.End))
-	}
-	sb.WriteString(ri)
-	return sb.String()
-}
-
-func (r Range) Empty() bool {
-	return r.Begin == 0 && r.End == 0
-}
-
 // Watcher is the entity following the stream.
 type Watcher interface {
 	// Watcher is a kind of DataFrameReader.
@@ -307,43 +199,59 @@ type Attributes map[string]string
 
 // const attributes keys the queue service implement must provide.
 const (
-	Backend                 = "meta.backend"
-	MaxPayloadBytes         = "meta.maxPayloadBytes"
-	UserIdentifyHeader      = "meta.header.userIdentifyHeader"
-	GroupIdentifyHeader     = "meta.header.groupIdentifyHeader"
-	StreamLength            = "stream.length"
-	StreamApproximateLength = "stream.approxMaxLength"
+	// const attributes keys the queue service implement must provide.
+	Backend                    = "meta.backend"
+	Name                       = "meta.name"
+	State                      = "meta.state"
+	MaxPayloadBytes            = "meta.maxPayloadBytes"
+	UserIdentifyHeader         = "meta.header.user"
+	GroupIdentifyHeader        = "meta.header.group"
+	PriorityHeader             = "meta.header.priority"
+	StreamLength               = "stream.length"
+	StreamApproximateMaxLength = "stream.approxMaxLength"
+	StreamLastEntry            = "stream.lastEntry"
+	StreamFirstEntry           = "stream.firstEntry"
+
+	// not necessary attribute keys
+	ConsumersTotal = "consumers.status.total"
 )
 
 var MaxIndex = FromUint64(uint64(math.MaxUint64))
 
-// Interface of QueueService. Core abstraction for streaming framework.
-type Interface interface {
-	// End normally emits 'EOS' symbol to end up the queue asynchronously,
-	// but if force set to true, stream ends up directly.
-	// Undelivered data will be truncated.
-	End(ctx context.Context, force bool) error
-	// Truncate truncates data before the specific index.
-	Truncate(ctx context.Context, index uint64) error
-	// Put appends new data into stream.
-	Put(ctx context.Context, data []byte, tags Tags) (index uint64, err error)
-	// Get returns data frames from the index of stream in queue.
-	// Param length specifies the expected message count.
-	// And if timeout is set, this call will block until length got satisfied or
-	// timeout timer fires.
-	Get(ctx context.Context, index uint64, length int, timeout time.Duration, tags Tags) (dfs []DataFrame, err error)
-	// Watch subscribe to queue service, when new data frame is appended through Put method,
-	// watcher will emit it through its result channel.
-	// Param index specifies the beginning message index of the watch.
-	// Param window specifies the largest size the Watcher could transfer at one time.
-	Watch(ctx context.Context, index uint64, indexOnly bool, noAck bool, window uint64) (Watcher, error)
-	// Commit commits indices to make the corresponding messages marked as consumed.
-	Commit(ctx context.Context, del bool, indexes ...uint64) error
-	// Del deletes indices to make the corresponding messages deleted from stream.
-	Del(ctx context.Context, indexes ...uint64) error
-	// Attributes reflects self dynamic attributes by K/V pairs.
-	Attributes() Attributes
+type Priority int64
+
+func (p Priority) String() string {
+	return strconv.FormatInt(int64(p), 10)
 }
+
+type Code string
+
+func (c Code) String() string {
+	return string(c)
+}
+
+const (
+	codeValidRegexp = `^([A-Z][a-z]*)+(.[A-Z][a-z]*)?$|^[0-9]+$`
+)
+
+var codeRegexp = regexp.MustCompile(codeValidRegexp)
+
+func (c Code) Verify() error {
+	if codeRegexp.MatchString(c.String()) {
+		if len(c) > 20 {
+			return errors.New("code can not have more than 20 characters")
+		}
+		return nil
+	} else {
+		return errors.New("code must match regular expression: " + codeValidRegexp)
+	}
+}
+
+// some well-known Codes.
+const (
+	// Shutdown indicates the consumer will exit soon.
+	Shutdown Code = "Shutdown"
+)
 
 type DataFrameReader interface {
 	// FrameChan return a DataFrame channel.
