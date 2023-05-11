@@ -4,9 +4,6 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"github.com/google/uuid"
-	"github.com/pai-eas/eas-golang-sdk/eas/types"
-	"golang.org/x/net/websocket"
 	"io"
 	"net/http"
 	"net/url"
@@ -15,6 +12,10 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/google/uuid"
+	"github.com/pai-eas/eas-golang-sdk/eas/types"
+	"golang.org/x/net/websocket"
 )
 
 const (
@@ -145,7 +146,12 @@ func readMessage(reader io.Reader) string {
 
 func (q *QueueClient) getAttr(force bool) (types.Attributes, error) {
 	var err error
-	if q.attr == nil {
+	defer func() {
+		if err != nil && len(q.attr) == 0 {
+			q.reset()
+		}
+	}()
+	if len(q.attr) == 0 {
 		q.once.Do(func() { err = q.obtainAttr() })
 	} else if force {
 		if err = q.obtainAttr(); err != nil {
@@ -154,6 +160,11 @@ func (q *QueueClient) getAttr(force bool) (types.Attributes, error) {
 	}
 
 	return q.attr, err
+}
+
+func (q *QueueClient) reset() {
+	q.attr = nil
+	q.once = sync.Once{}
 }
 
 func (q *QueueClient) obtainAttr() error {
@@ -180,10 +191,11 @@ func (q *QueueClient) obtainAttr() error {
 	if resp.StatusCode != 200 {
 		return fmt.Errorf("visiting: %s, unexpected status code: %d, body: %s", u.String(), resp.StatusCode, string(body))
 	}
-	q.attr = types.Attributes{}
-	if err = q.ACodec.Decode(body, &q.attr); err != nil {
+	attr := types.Attributes{}
+	if err = q.ACodec.Decode(body, &attr); err != nil {
 		return err
 	}
+	q.attr = attr
 	return nil
 }
 
@@ -531,6 +543,7 @@ func (w *reconnectWatcher) run(config *websocket.Config, decoder types.DataFrame
 						fmt.Printf("Connect to upstream error: %v, retry...\n", err)
 						continue
 					}
+					w.watcher.Close()
 					w.watcher = watcher
 					break loop
 				case <-w.ctx.Done():
