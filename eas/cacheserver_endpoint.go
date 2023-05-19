@@ -22,10 +22,10 @@ func newCacheServerEndpoint(domain string, serviceName string) *cacheServerEndpo
 	if domain[len(domain)-1] == '/' {
 		domain = domain[:len(domain)-1]
 	}
-
+	srvName := strings.Split(serviceName, "/")[0]
 	return &cacheServerEndpoint{
 		domain:      domain,
-		serviceName: serviceName,
+		serviceName: srvName,
 		client:      http.Client{},
 	}
 }
