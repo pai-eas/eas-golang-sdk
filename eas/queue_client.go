@@ -303,12 +303,21 @@ func (q *QueueClient) End(ctx context.Context, force bool) error {
 
 // Put puts data into queue. It returns the index of the data in queue, and generated request id.
 func (q *QueueClient) Put(ctx context.Context, data []byte, tags types.Tags) (uint64, string, error) {
-	return q.PutWithPriority(ctx, data, tags, 0)
+	return q.PutWithPathAndPriority(ctx, data, "", tags, 0)
 }
 
-// PutWithPriority puts data into queue with priority. It returns the index of the data in queue, and generated request id.
-// The prioritized data will be received by Watcher before normal data.
+func (q *QueueClient) PutWithPath(ctx context.Context, data []byte, path string, tags types.Tags) (uint64, string, error) {
+	return q.PutWithPathAndPriority(ctx, data, path, tags, 0)
+}
+
 func (q *QueueClient) PutWithPriority(ctx context.Context, data []byte, tags types.Tags, prio types.Priority) (index uint64, requestId string, err error) {
+	return q.PutWithPathAndPriority(ctx, data, "", tags, prio)
+}
+
+// PutWithPriority puts data into queue with path and priority.
+// It returns the index of the data in queue, and generated request id.
+// The prioritized data will be received by Watcher before normal data.
+func (q *QueueClient) PutWithPathAndPriority(ctx context.Context, data []byte, customPath string, tags types.Tags, prio types.Priority) (index uint64, requestId string, err error) {
 	// make a copy of base url.
 	u := *q.baseUrl
 	qe := u.Query()
@@ -316,6 +325,9 @@ func (q *QueueClient) PutWithPriority(ctx context.Context, data []byte, tags typ
 		qe.Set(key, val)
 	}
 	u.RawQuery = qe.Encode()
+	if customPath != "" {
+		u.Path = path.Join(u.Path, customPath)
+	}
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, u.String(), bytes.NewReader(data))
 	if err != nil {
 		return 0, requestId, err

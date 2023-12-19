@@ -3,10 +3,11 @@ package eas
 import (
 	"context"
 	"fmt"
-	"github.com/pai-eas/eas-golang-sdk/eas/types"
 	"strconv"
 	"testing"
 	"time"
+
+	"github.com/pai-eas/eas-golang-sdk/eas/types"
 )
 
 const (
