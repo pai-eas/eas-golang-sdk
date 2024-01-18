@@ -20,6 +20,7 @@ import (
 
 const (
 	HeaderRequestId     = "X-Eas-Queueservice-Request-Id"
+	HeaderAccessRear    = "X-EAS-QueueService-Access-Rear"
 	HeaderAuthorization = "Authorization"
 
 	DefaultBasePath = "/api/predict"
@@ -178,6 +179,7 @@ func (q *QueueClient) obtainAttr() error {
 		return err
 	}
 	q.withAuthorization(req)
+	q.AddExtraHeaders(req.Header)
 	req.Header.Set("accept", q.ACodec.MediaType())
 	resp, err := q.httpClient.Do(req)
 	if err != nil {
@@ -262,6 +264,7 @@ func (q *QueueClient) Truncate(ctx context.Context, index uint64) error {
 		return err
 	}
 	q.withAuthorization(req)
+	q.AddExtraHeaders(req.Header)
 	resp, err := q.httpClient.Do(req)
 	if err != nil {
 		return err
@@ -290,6 +293,7 @@ func (q *QueueClient) End(ctx context.Context, force bool) error {
 		return err
 	}
 	q.withAuthorization(req)
+	q.AddExtraHeaders(req.Header)
 	resp, err := q.httpClient.Do(req)
 	if err != nil {
 		return err
@@ -402,6 +406,7 @@ func (q *QueueClient) Get(ctx context.Context, index uint64, length int, timeout
 		return ret, err
 	}
 	q.withAuthorization(req)
+	q.AddExtraHeaders(req.Header)
 	resp, err := q.httpClient.Do(req)
 	if err != nil {
 		return ret, err
@@ -702,6 +707,7 @@ func (q *QueueClient) WatchByTag(ctx context.Context, index, window uint64, inde
 			return nil, err
 		}
 		q.withAuthorization(req)
+		q.AddExtraHeaders(req.Header)
 		resp, err := q.httpClient.Do(req)
 		if err != nil {
 			cancel()
@@ -737,6 +743,7 @@ func (q *QueueClient) Commit(ctx context.Context, indexes ...uint64) error {
 		return err
 	}
 	q.withAuthorization(req)
+	q.AddExtraHeaders(req.Header)
 	resp, err := q.httpClient.Do(req)
 	if err != nil {
 		return err
@@ -800,6 +807,7 @@ func (q *QueueClient) Del(ctx context.Context, indexes ...uint64) error {
 		return err
 	}
 	q.withAuthorization(req)
+	q.AddExtraHeaders(req.Header)
 	resp, err := q.httpClient.Do(req)
 	if err != nil {
 		return err
