@@ -48,6 +48,18 @@ func getQueueClient(t *testing.T) *QueueClientTestCase {
 	return testCase
 }
 
+func getRearQueueClient(t *testing.T) *QueueClientTestCase {
+	if testCase == nil {
+		testCase = &QueueClientTestCase{}
+		var err error
+		testCase.inputQueue, err = NewQueueClient(QueueEndpoint, InputQueueName, QueueToken, WithBasePath(""), WithExtraHeaders(map[string]string{HeaderAccessRear: "true"}))
+		assertNoError(t, err)
+		testCase.sinkQueue, err = NewQueueClient(QueueEndpoint, SinkQueueName, QueueToken, WithBasePath(""), WithExtraHeaders(map[string]string{HeaderAccessRear: "true"}))
+		assertNoError(t, err)
+	}
+	return testCase
+}
+
 func (c *QueueClientTestCase) truncate(t *testing.T) {
 	attrs, err := c.inputQueue.Attributes()
 	assertNoError(t, err)
@@ -109,6 +121,21 @@ func TestQueueGetByIndex(t *testing.T) {
 	assertNoError(t, err)
 
 	list, err := c.sinkQueue.GetByIndex(context.Background(), index)
+	assertNoError(t, err)
+
+	assertEqual(t, len(list), 1)
+	assertEqual(t, string(list[0].Data), "abc")
+}
+
+func TestRearQueueGetByRequestId(t *testing.T) {
+	c := getRearQueueClient(t)
+
+	c.truncate(t)
+
+	_, requestId, err := c.sinkQueue.Put(context.Background(), []byte("abc"), types.Tags{})
+	assertNoError(t, err)
+
+	list, err := c.sinkQueue.GetByRequestId(context.Background(), requestId)
 	assertNoError(t, err)
 
 	assertEqual(t, len(list), 1)
