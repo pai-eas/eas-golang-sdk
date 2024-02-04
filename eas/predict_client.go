@@ -64,9 +64,20 @@ type PredictClient struct {
 	client             http.Client
 }
 
+type HttpOption func(client *http.Client)
+
+func DisableHttpRedirect() func(client *http.Client) {
+	return func(client *http.Client) {
+		client.CheckRedirect = func(req *http.Request, via []*http.Request) error {
+			return http.ErrUseLastResponse
+		}
+		return
+	}
+}
+
 // NewPredictClient returns an instance of PredictClient
-func NewPredictClient(endpointName string, serviceName string) *PredictClient {
-	return &PredictClient{
+func NewPredictClient(endpointName string, serviceName string, options ...HttpOption) *PredictClient {
+	client := &PredictClient{
 		endpointName: endpointName,
 		serviceName:  serviceName,
 		retryCount:   5,
@@ -79,6 +90,10 @@ func NewPredictClient(endpointName string, serviceName string) *PredictClient {
 			},
 		},
 	}
+	for _, option := range options {
+		option(&client.client)
+	}
+	return client
 }
 
 // Init initializes the predict client to create and enable endpoint discovery
@@ -100,7 +115,7 @@ func (p *PredictClient) Init() error {
 	return nil
 }
 
-//  Shutdown after called this client instance should not be used again
+// Shutdown after called this client instance should not be used again
 func (p *PredictClient) Shutdown() {
 	atomic.StoreInt32(&(p.stop), 1)
 }
@@ -277,6 +292,10 @@ type Response interface {
 
 // Predict for request
 func (p *PredictClient) Predict(request Request) (Response, error) {
+	if rawRequest, ok := request.(RawRequest); ok {
+		return p.RawRequest(rawRequest)
+	}
+
 	req, err2 := request.ToString()
 	if err2 != nil {
 		return nil, err2
@@ -322,4 +341,58 @@ func (p *PredictClient) TFPredict(request TFRequest) (*TFResponse, error) {
 		return nil, err
 	}
 	return resp.(*TFResponse), err
+}
+
+// RawRequest sends the raw request in raw http Request, retry the request automatically when an error occurs
+func (p *PredictClient) RawRequest(req RawRequest) (*RawResponse, error) {
+	host := p.tryNext("")
+	var predictError *PredictError
+	for i := 0; i <= p.retryCount; i++ {
+		if i != 0 {
+			host = p.tryNext(host)
+		}
+
+		if len(host) == 0 {
+			predictError = NewPredictError(ErrorCodeServiceDiscovery, host,
+				fmt.Sprintf("No available endpoint found for service: %v", p.serviceName))
+			return nil, predictError
+		}
+
+		req.URL.Host = host
+		url := p.createUrl(host)
+
+		resp, err := p.client.Do(&req.Request)
+		if err != nil {
+			predictError = NewPredictError(ErrorCodePerformRequest, url, err.Error())
+			// retry
+			if i != p.retryCount {
+				continue
+			}
+			return nil, predictError
+		}
+
+		if resp.StatusCode != 200 {
+			predictError = NewPredictError(resp.StatusCode, url, "")
+			// retry
+			if i != p.retryCount {
+				continue
+			}
+			return nil, predictError
+		}
+
+		body, err := ioutil.ReadAll(resp.Body)
+		if err != nil {
+			predictError = NewPredictError(ErrorCodeReadResponse, url, err.Error())
+			// retry
+			if i != p.retryCount {
+				continue
+			}
+			return nil, err
+		}
+		resp.Body.Close()
+		rawResp := RawResponse{data: body}
+
+		return &rawResp, nil
+	}
+	return nil, predictError
 }
