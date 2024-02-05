@@ -21,6 +21,11 @@ const (
 )
 
 const (
+	CompressTypeGzip = "Gzip"
+	CompressTypeZlib = "Zlib"
+)
+
+const (
 	ErrorCodeServiceDiscovery = 510
 	ErrorCodeCreateRequest    = 511
 	ErrorCodePerformRequest   = 512
@@ -60,6 +65,7 @@ type PredictClient struct {
 	endpointType       string
 	endpointName       string
 	serviceName        string
+	compressType       string
 	stop               int32
 	client             http.Client
 }
@@ -100,7 +106,7 @@ func (p *PredictClient) Init() error {
 	return nil
 }
 
-//  Shutdown after called this client instance should not be used again
+// Shutdown after called this client instance should not be used again
 func (p *PredictClient) Shutdown() {
 	atomic.StoreInt32(&(p.stop), 1)
 }
@@ -163,6 +169,11 @@ func (p *PredictClient) SetServiceName(serviceName string) {
 	p.serviceName = serviceName
 }
 
+// SetCompressType sets compressor type for client
+func (p *PredictClient) SetCompressType(compressType string) {
+	p.compressType = compressType
+}
+
 func (p *PredictClient) tryNext(host string) string {
 	return p.endpoint.TryNext(host)
 }
@@ -200,6 +211,14 @@ func (p *PredictClient) generateSignature(requestData []byte) map[string]string 
 // BytesPredict send the raw request data in byte array through http connections,
 // retry the request automatically when an error occurs
 func (p *PredictClient) BytesPredict(requestData []byte) ([]byte, error) {
+	var err error
+	if len(p.compressType) > 0 {
+		requestData, err = compress(requestData, p.compressType)
+		if err != nil {
+			return nil, NewPredictError(http.StatusInternalServerError, "", err.Error())
+		}
+	}
+
 	host := p.tryNext("")
 	headers := p.generateSignature(requestData)
 	for i := 0; i <= p.retryCount; i++ {
