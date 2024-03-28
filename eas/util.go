@@ -48,3 +48,7 @@ func compress(data []byte, compressType string) ([]byte, error) {
 
 	return b.Bytes(), nil
 }
+
+func noPanic() {
+	_ = recover()
+}
