@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"strconv"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -22,8 +23,6 @@ type QueueClientTestCase struct {
 	sinkQueue  *QueueClient
 }
 
-var testCase *QueueClientTestCase
-
 func assertEqual(t *testing.T, a, b interface{}) {
 	if a != b {
 		t.Fatalf("%v != %v", a, b)
@@ -36,27 +35,25 @@ func assertNoError(t *testing.T, err error) {
 	}
 }
 
-func getQueueClient(t *testing.T) *QueueClientTestCase {
-	if testCase == nil {
-		testCase = &QueueClientTestCase{}
-		var err error
-		testCase.inputQueue, err = NewQueueClient(QueueEndpoint, InputQueueName, QueueToken, WithBasePath(""))
-		assertNoError(t, err)
-		testCase.sinkQueue, err = NewQueueClient(QueueEndpoint, SinkQueueName, QueueToken, WithBasePath(""))
-		assertNoError(t, err)
-	}
+func getQueueClient(t *testing.T, opts ...QueueOption) *QueueClientTestCase {
+	testCase := &QueueClientTestCase{}
+	var err error
+	opts = append(opts, WithBasePath(""))
+	testCase.inputQueue, err = NewQueueClient(QueueEndpoint, InputQueueName, QueueToken, opts...)
+	assertNoError(t, err)
+	testCase.sinkQueue, err = NewQueueClient(QueueEndpoint, SinkQueueName, QueueToken, opts...)
+	assertNoError(t, err)
 	return testCase
 }
 
-func getRearQueueClient(t *testing.T) *QueueClientTestCase {
-	if testCase == nil {
-		testCase = &QueueClientTestCase{}
-		var err error
-		testCase.inputQueue, err = NewQueueClient(QueueEndpoint, InputQueueName, QueueToken, WithBasePath(""), WithExtraHeaders(map[string]string{HeaderAccessRear: "true"}))
-		assertNoError(t, err)
-		testCase.sinkQueue, err = NewQueueClient(QueueEndpoint, SinkQueueName, QueueToken, WithBasePath(""), WithExtraHeaders(map[string]string{HeaderAccessRear: "true"}))
-		assertNoError(t, err)
-	}
+func getRearQueueClient(t *testing.T, opts ...QueueOption) *QueueClientTestCase {
+	testCase := &QueueClientTestCase{}
+	var err error
+	opts = append(opts, WithBasePath(""), WithExtraHeaders(map[string]string{HeaderAccessRear: "true"}))
+	testCase.inputQueue, err = NewQueueClient(QueueEndpoint, InputQueueName, QueueToken, opts...)
+	assertNoError(t, err)
+	testCase.sinkQueue, err = NewQueueClient(QueueEndpoint, SinkQueueName, QueueToken, opts...)
+	assertNoError(t, err)
 	return testCase
 }
 
@@ -199,40 +196,40 @@ func TestWatchWithManualCommit(t *testing.T) {
 }
 
 func TestWatchWithReconnect(t *testing.T) {
-	c := getQueueClient(t)
+	total := int32(0)
+	c := getQueueClient(t, withBreakGenerator(
+		func() bool {
+			return atomic.LoadInt32(&total) == 60
+		},
+	))
 
 	c.truncate(t)
-
-	ctx, cancel := context.WithCancel(context.Background())
-
-	go func() {
-		i := 0
-		for {
-			select {
-			case <-time.NewTicker(time.Microsecond * 1).C:
-				_, _, err := c.sinkQueue.Put(context.Background(), []byte(strconv.Itoa(i)), types.Tags{})
-				assertNoError(t, err)
-				i += 1
-			case <-ctx.Done():
-				break
-			}
-		}
-	}()
 
 	watcher, err := c.sinkQueue.Watch(context.Background(), 0, 5, false, false)
 	assertNoError(t, err)
 
-	for i := 0; i < 100; i++ {
-		df, ok := <-watcher.FrameChan()
-		assertEqual(t, ok, true)
+	go func() {
+		for i := 0; i < 100; i++ {
+			_, _, err := c.sinkQueue.Put(context.Background(), []byte(strconv.Itoa(i)), types.Tags{})
+			assertNoError(t, err)
+			atomic.AddInt32(&total, 1)
+			time.Sleep(time.Microsecond * 10)
+		}
+		time.Sleep(time.Second * 2)
+		watcher.Close()
+	}()
+
+	ch := watcher.FrameChan()
+	for df := range ch {
 		err := c.sinkQueue.Commit(context.Background(), df.Index.Uint64())
 		if err != nil {
 			fmt.Printf("commit id: %v failed: %v", df.Index, err)
 		}
 		assertNoError(t, err)
-		assertEqual(t, string(df.Data), strconv.Itoa(i))
 	}
 
-	watcher.Close()
-	cancel()
+	time.Sleep(time.Second * 2)
+	attrs, err := c.sinkQueue.Attributes()
+	assertNoError(t, err)
+	assertEqual(t, attrs["stream.length"], "0")
 }

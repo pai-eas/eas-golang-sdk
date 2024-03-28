@@ -3,6 +3,7 @@ package eas
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -11,6 +12,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/google/uuid"
@@ -27,6 +29,13 @@ const (
 
 	DefaultGroupName = "eas"
 )
+
+// testing only.
+type breakGenerator func() bool
+
+func noBreak() bool {
+	return false
+}
 
 type QueueUser struct {
 	uid   string
@@ -64,6 +73,7 @@ type QueueClient struct {
 	user types.User
 
 	WebsocketWatch bool
+	bg             breakGenerator
 
 	once sync.Once
 	attr types.Attributes
@@ -77,6 +87,7 @@ type queueOptions struct {
 	basePath     string
 	uid          string
 	gid          string
+	bg           breakGenerator
 }
 
 type QueueOption func(*queueOptions)
@@ -105,8 +116,14 @@ func WithGroupId(gid string) QueueOption {
 	}
 }
 
+func withBreakGenerator(bg breakGenerator) QueueOption {
+	return func(o *queueOptions) {
+		o.bg = bg
+	}
+}
+
 func NewQueueClient(endpoint, queueName, token string, opts ...QueueOption) (*QueueClient, error) {
-	queueOpt := &queueOptions{basePath: DefaultBasePath}
+	queueOpt := &queueOptions{basePath: DefaultBasePath, bg: noBreak}
 	for _, opt := range opts {
 		opt(queueOpt)
 	}
@@ -126,6 +143,7 @@ func NewQueueClient(endpoint, queueName, token string, opts ...QueueOption) (*Qu
 	}
 	cli := &QueueClient{
 		baseUrl:        u,
+		bg:             queueOpt.bg,
 		httpClient:     &http.Client{},
 		user:           NewQueueUser(queueOpt.uid, queueOpt.gid, token),
 		WebsocketWatch: true, // Watch through websocket by default
@@ -434,14 +452,16 @@ func boolString(b bool) string {
 
 type websocketWatcher struct {
 	ctx             context.Context
-	cancel          context.CancelFunc
 	conn            *websocket.Conn
 	decoder         types.DataFrameDecoder
 	pingFrameWriter io.WriteCloser
 	ch              chan types.DataFrame
+	bg              breakGenerator
+
+	closed int32
 }
 
-func newWebsocketWatcher(ctx context.Context, cancel context.CancelFunc, config *websocket.Config, decoder types.DataFrameDecoder) (types.Watcher, error) {
+func newWebsocketWatcher(ctx context.Context, config *websocket.Config, decoder types.DataFrameDecoder) (types.Watcher, error) {
 	conn, err := websocket.DialConfig(config)
 	if err != nil {
 		return nil, err
@@ -452,7 +472,6 @@ func newWebsocketWatcher(ctx context.Context, cancel context.CancelFunc, config 
 	}
 	w := &websocketWatcher{
 		ctx:             ctx,
-		cancel:          cancel,
 		conn:            conn,
 		decoder:         decoder,
 		pingFrameWriter: ping,
@@ -467,7 +486,10 @@ func (w *websocketWatcher) FrameChan() <-chan types.DataFrame {
 }
 
 func (w *websocketWatcher) Close() {
-	w.cancel()
+	if atomic.CompareAndSwapInt32(&w.closed, 0, 1) {
+		_ = w.conn.Close()
+		close(w.ch)
+	}
 }
 
 func (w *websocketWatcher) pingServer() error {
@@ -475,60 +497,86 @@ func (w *websocketWatcher) pingServer() error {
 	return err
 }
 
+func (w *websocketWatcher) push(df types.DataFrame) {
+	defer noPanic()
+	if atomic.LoadInt32(&w.closed) == 0 {
+		w.ch <- df
+	}
+}
+
 func (w *websocketWatcher) run() {
 	go func() {
 		ticker := time.NewTicker(time.Second)
 		defer ticker.Stop()
 		defer w.pingFrameWriter.Close()
-		for {
+		for atomic.LoadInt32(&w.closed) == 0 {
 			select {
 			case <-w.ctx.Done():
-				w.conn.Close()
+				_ = w.conn.Close()
 				return
 			case <-ticker.C:
-				w.pingServer()
+				_ = w.pingServer()
 			}
 		}
 	}()
-	defer w.cancel()
-	defer close(w.ch)
+	defer w.Close()
 	var data []byte
 	for {
 		df := types.DataFrame{}
 		err := websocket.Message.Receive(w.conn, &data)
 		if err != nil {
 			df.Message = fmt.Sprintf("error reading message: %v", err)
-			w.ch <- df
+			w.push(df)
 			return
 		}
 		if err = w.decoder.Decode(data, &df); err != nil {
 			df.Message = fmt.Sprintf("failed to decode message: %v", err)
+			w.push(df)
+			return
 		}
-		w.ch <- df
+		w.push(df)
 	}
 }
 
+type watcherCtor func(context.Context, types.DataFrameDecoder) (types.Watcher, error)
+
 type reconnectWatcher struct {
-	watcher  types.Watcher
-	userChan chan types.DataFrame
-	ctx      context.Context
-	cancel   context.CancelFunc
+	delegator types.Watcher
+	userChan  chan types.DataFrame
+	ctx       context.Context
+	cancel    context.CancelFunc
+	decoder   types.DataFrameDecoder
+	wCtor     watcherCtor
+
+	closed int32
+	// only for testing
+	bg breakGenerator
 }
 
-func newReconnectWatcher(ctx context.Context, cancel context.CancelFunc, config *websocket.Config, decoder types.DataFrameDecoder) (types.Watcher, error) {
-	// TODO it can be more generic to cover different kind of watcher
-	wCtx, wCancel := context.WithCancel(context.Background())
-	websocketWatcher, err := newWebsocketWatcher(wCtx, wCancel, config, decoder)
+func (w *reconnectWatcher) push(df types.DataFrame) {
+	defer noPanic()
+	if atomic.LoadInt32(&w.closed) == 0 {
+		w.userChan <- df
+	}
+}
+
+func newReconnectWatcher(ctx context.Context, wCtor watcherCtor, decoder types.DataFrameDecoder, bg breakGenerator) (types.Watcher, error) {
+	wCtx, wCancel := context.WithCancel(ctx)
+	watcher, err := wCtor(wCtx, decoder)
 	if err != nil {
+		wCancel()
 		return nil, err
 	}
 	w := &reconnectWatcher{
-		watcher:  websocketWatcher,
-		userChan: make(chan types.DataFrame, 100),
-		ctx:      ctx,
-		cancel:   cancel,
+		delegator: watcher,
+		userChan:  make(chan types.DataFrame, 100),
+		decoder:   decoder,
+		ctx:       wCtx,
+		cancel:    wCancel,
+		wCtor:     wCtor,
+		bg:        bg,
 	}
-	go w.run(config, decoder)
+	go w.run()
 	return w, nil
 }
 
@@ -537,31 +585,38 @@ func (w *reconnectWatcher) FrameChan() <-chan types.DataFrame {
 }
 
 func (w *reconnectWatcher) Close() {
-	w.cancel()
-	w.watcher.Close()
+	if atomic.CompareAndSwapInt32(&w.closed, 0, 1) {
+		w.cancel()
+		w.delegator.Close()
+		close(w.userChan)
+	}
 }
 
-func (w *reconnectWatcher) run(config *websocket.Config, decoder types.DataFrameDecoder) {
-	defer close(w.userChan)
+func (w *reconnectWatcher) run() {
+	ticker := time.NewTicker(time.Second)
+	defer ticker.Stop()
+	defer w.Close()
 	for {
-		df, ok := <-w.watcher.FrameChan()
+		if w.bg() {
+			w.delegator.Close()
+		}
+		df, ok := <-w.delegator.FrameChan()
 		// connection closed
 		if !ok {
+			fmt.Println("Upstream connection closed, reconnecting...")
 			// connection was closed by upstream unexpectedly, try to reconnect
-			ticker := time.NewTicker(time.Second)
-
 		loop:
 			for {
 				select {
 				case <-ticker.C:
-					// try to reconnect every 100ms
-					watcher, err := newWebsocketWatcher(w.ctx, w.cancel, config, decoder)
+					// try to reconnect every 1 second
+					watcher, err := w.wCtor(w.ctx, w.decoder)
 					if err != nil {
 						fmt.Printf("Connect to upstream error: %v, retry...\n", err)
 						continue
 					}
-					w.watcher.Close()
-					w.watcher = watcher
+					w.delegator.Close()
+					w.delegator = watcher
 					break loop
 				case <-w.ctx.Done():
 					// watcher was closed by user
@@ -569,23 +624,23 @@ func (w *reconnectWatcher) run(config *websocket.Config, decoder types.DataFrame
 				}
 			}
 		} else {
-			w.userChan <- df
+			w.push(df)
 		}
 	}
 }
 
 type httpWatcher struct {
 	ctx     context.Context
-	cancel  context.CancelFunc
 	reader  io.ReadCloser
 	decoder types.DataFrameDecoder
 	ch      chan types.DataFrame
+
+	closed int32
 }
 
-func newHTTPWatcher(ctx context.Context, cancel context.CancelFunc, reader io.ReadCloser, decoder types.DataFrameDecoder) *httpWatcher {
+func newHTTPWatcher(ctx context.Context, reader io.ReadCloser, decoder types.DataFrameDecoder) *httpWatcher {
 	w := &httpWatcher{
 		ctx:     ctx,
-		cancel:  cancel,
 		reader:  reader,
 		decoder: decoder,
 		ch:      make(chan types.DataFrame, 100),
@@ -599,25 +654,28 @@ func (h *httpWatcher) FrameChan() <-chan types.DataFrame {
 }
 
 func (h *httpWatcher) Close() {
-	h.cancel()
-	h.reader.Close()
+	if atomic.CompareAndSwapInt32(&h.closed, 0, 1) {
+		_ = h.reader.Close()
+		close(h.ch)
+	}
+}
+
+func (h *httpWatcher) push(df types.DataFrame) {
+	defer noPanic()
+	if atomic.LoadInt32(&h.closed) == 0 {
+		h.ch <- df
+	}
 }
 
 func (h *httpWatcher) run() {
-	go func() {
-		<-h.ctx.Done()
-		h.reader.Close()
-	}()
-
-	defer h.cancel()
-	defer close(h.ch)
+	defer h.Close()
 	rbuf := [4096]byte{}
 	buf := bytes.NewBuffer(nil)
 	for {
 		n, err := h.reader.Read(rbuf[:])
 		if n > 0 {
 			io.Copy(buf, bytes.NewBuffer(rbuf[:n]))
-			if err == io.ErrShortBuffer {
+			if errors.Is(err, io.ErrShortBuffer) {
 				continue
 			} else if err != nil {
 				// fmt.Printf("failed to read: %v\n", err)
@@ -625,11 +683,11 @@ func (h *httpWatcher) run() {
 			}
 			df := types.DataFrame{}
 			if err = h.decoder.Decode(buf.Bytes(), &df); err != nil {
-				// klog.Errorf("failed to decode, err: %v", err)
+				// fmt.Errorf("failed to decode, err: %v", err)
 				return
 			}
 			buf.Reset()
-			h.ch <- df
+			h.push(df)
 		} else {
 			break
 		}
@@ -648,7 +706,6 @@ func (q *QueueClient) Watch(ctx context.Context, index, window uint64, indexOnly
 //   - autocommit: if true, the index will be automatically committed after the data frame is received.
 //   - tags: the tags to watch.
 func (q *QueueClient) WatchByTag(ctx context.Context, index, window uint64, indexOnly bool, autocommit bool, tags types.Tags) (types.Watcher, error) {
-	ctx, cancel := context.WithCancel(ctx)
 	u := *q.baseUrl
 	eq := u.Query()
 	eq.Set("_index_", strconv.FormatUint(index, 10))
@@ -657,7 +714,6 @@ func (q *QueueClient) WatchByTag(ctx context.Context, index, window uint64, inde
 	eq.Set("_auto_commit_", boolString(autocommit))
 	eq.Set("_watch_", boolString(true))
 	if err := tags.Validate(); err != nil {
-		cancel()
 		return nil, err
 	}
 	for key, val := range tags {
@@ -669,13 +725,11 @@ func (q *QueueClient) WatchByTag(ctx context.Context, index, window uint64, inde
 		u.Scheme = "ws"
 		config, err := websocket.NewConfig(u.String(), q.baseUrl.String())
 		if err != nil {
-			cancel()
 			return nil, err
 		}
 		header := http.Header{}
 		attr, err := q.getAttr(true)
 		if err != nil {
-			cancel()
 			return nil, err
 		}
 		uidHeader := attr[types.UserIdentifyHeader]
@@ -688,38 +742,36 @@ func (q *QueueClient) WatchByTag(ctx context.Context, index, window uint64, inde
 			header.Set(gidHeader, q.user.Gid())
 		}
 		config.Header = header
-		watcher, err := newReconnectWatcher(ctx, cancel, config, q.DCodec)
-		if err != nil {
-			cancel()
+		ctor := func(ctx context.Context, decoder types.DataFrameDecoder) (types.Watcher, error) {
+			return newWebsocketWatcher(ctx, config, decoder)
 		}
-		return watcher, err
+		return newReconnectWatcher(ctx, ctor, q.DCodec, q.bg)
 
 	} else {
-		// default http watch.
+		// http watch.
 		req, err := http.NewRequestWithContext(ctx, http.MethodGet, u.String(), nil)
 		if err != nil {
-			cancel()
 			return nil, err
 		}
 		req.Header.Set("Accept", q.DCodec.MediaType())
 		if err := q.withIdentity(req); err != nil {
-			cancel()
 			return nil, err
 		}
 		q.withAuthorization(req)
 		q.AddExtraHeaders(req.Header)
-		resp, err := q.httpClient.Do(req)
-		if err != nil {
-			cancel()
-			return nil, err
+		ctor := func(ctx context.Context, decoder types.DataFrameDecoder) (types.Watcher, error) {
+			resp, err := q.httpClient.Do(req)
+			if err != nil {
+				return nil, err
+			}
+			if resp.StatusCode != 200 {
+				content, _ := io.ReadAll(resp.Body)
+				return nil, fmt.Errorf("unexpected status code: %d, message: %s", resp.StatusCode, string(content))
+			}
+			reader := types.NewLengthDelimitedFrameReader(resp.Body)
+			return newHTTPWatcher(ctx, reader, decoder), nil
 		}
-		if resp.StatusCode != 200 {
-			cancel()
-			content, _ := io.ReadAll(resp.Body)
-			return nil, fmt.Errorf("unexpected status code: %d, message: %s", resp.StatusCode, string(content))
-		}
-		reader := types.NewLengthDelimitedFrameReader(resp.Body)
-		return newHTTPWatcher(ctx, cancel, reader, q.DCodec), nil
+		return newReconnectWatcher(ctx, ctor, q.DCodec, q.bg)
 	}
 }
 
