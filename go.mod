@@ -1,4 +1,4 @@
-module github.com/pai-eas/eas-golang-sdk
+module github.com/xd-luqiang/eas-golang-sdk
 
 go 1.14
 

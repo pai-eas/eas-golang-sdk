@@ -11,7 +11,26 @@ import (
 	"encoding/hex"
 	"fmt"
 	"io"
+	"sync"
 )
+
+var gzipWriterPool = &sync.Pool{
+	New: func() interface{} {
+		return gzip.NewWriter(nil)
+	},
+}
+
+var zlibWriterPool = &sync.Pool{
+	New: func() interface{} {
+		return zlib.NewWriter(nil)
+	},
+}
+
+type CompressWriter interface {
+	Reset(io.Writer)
+	Write([]byte) (int, error)
+	Close() error
+}
 
 func md5sum(data []byte) string {
 	h := md5.New()
@@ -27,13 +46,19 @@ func hmacSha256(data string, secret string) string {
 
 func compress(data []byte, compressType string) ([]byte, error) {
 	var b bytes.Buffer
-	var w io.WriteCloser
+	var w CompressWriter
 
 	switch compressType {
 	case CompressTypeGzip:
-		w = gzip.NewWriter(&b)
+		// w = gzip.NewWriter(&b)
+		w = gzipWriterPool.Get().(*gzip.Writer)
+		defer gzipWriterPool.Put(w)
+		w.Reset(&b)
 	case CompressTypeZlib:
-		w = zlib.NewWriter(&b)
+		// w = zlib.NewWriter(&b)
+		w = zlibWriterPool.Get().(*zlib.Writer)
+		defer zlibWriterPool.Put(w)
+		w.Reset(&b)
 	default:
 		return nil, fmt.Errorf("unsupported compression type: %s", compressType)
 	}

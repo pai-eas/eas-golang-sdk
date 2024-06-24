@@ -40,7 +40,7 @@ package main
 
 import (
         "fmt"
-        "github.com/pai-eas/eas-golang-sdk/eas"
+        "github.com/xd-luqiang/eas-golang-sdk/eas"
 )
 
 func main() {
@@ -68,7 +68,7 @@ package main
 
 import (
         "fmt"
-        "github.com/pai-eas/eas-golang-sdk/eas"
+        "github.com/xd-luqiang/eas-golang-sdk/eas"
 )
 
 func main() {
@@ -101,7 +101,7 @@ package main
 
 import (
         "fmt"
-        "github.com/pai-eas/eas-golang-sdk/eas"
+        "github.com/xd-luqiang/eas-golang-sdk/eas"
 )
 
 func main() {
@@ -132,7 +132,7 @@ package main
 
 import (
         "fmt"
-        "github.com/pai-eas/eas-golang-sdk/eas"
+        "github.com/xd-luqiang/eas-golang-sdk/eas"
 )
 
 func main() {
@@ -161,7 +161,7 @@ package main
 
 import (
         "fmt"
-        "github.com/pai-eas/eas-golang-sdk/eas"
+        "github.com/xd-luqiang/eas-golang-sdk/eas"
 )
 
 func main() {
