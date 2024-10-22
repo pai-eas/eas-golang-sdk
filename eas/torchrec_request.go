@@ -12,17 +12,17 @@ import (
 
 // TorchRecRequest class for PyTorch data and requests
 type TorchRecRequest struct {
-	RequestData torch_predict_protos.PBRequest
+    RequestData torch_predict_protos.PBRequest
 }
 
 // Set Debug level for torchrecrequest
 func (tr *TorchRecRequest) SetDebugLevel(debug_level int32) {
-	tr.RequestData.DebugLevel = debug_level
+    tr.RequestData.DebugLevel = debug_level
 }
 
 // Set FaissNeighNum for torchrecrequest
 func (tr *TorchRecRequest) SetFaissNeighNum(k int32) {
-	tr.RequestData.FaissNeighNum = k
+    tr.RequestData.FaissNeighNum = k
 }
 
 func (tr *TorchRecRequest) AddFeat(value interface{}, dtype string) (*torch_predict_protos.PBFeature, error) {
@@ -34,13 +34,13 @@ func (tr *TorchRecRequest) AddFeat(value interface{}, dtype string) (*torch_pred
     } else if dtype == "STRING" {
         feat.Value = &torch_predict_protos.PBFeature_StringFeature{StringFeature: value.(string)} 
     } else if dtype == "FLOAT" {
-		feat.Value = &torch_predict_protos.PBFeature_FloatFeature{FloatFeature: float32(value.(float64))} 
+        feat.Value = &torch_predict_protos.PBFeature_FloatFeature{FloatFeature: float32(value.(float64))} 
     } else if dtype == "DOUBLE" {
-		feat.Value = &torch_predict_protos.PBFeature_DoubleFeature{DoubleFeature: value.(float64)} 
+        feat.Value = &torch_predict_protos.PBFeature_DoubleFeature{DoubleFeature: value.(float64)} 
     } else if dtype == "BIGINT" || dtype == "INT64" {
-		feat.Value = &torch_predict_protos.PBFeature_LongFeature{LongFeature: value.(int64)} 
+        feat.Value = &torch_predict_protos.PBFeature_LongFeature{LongFeature: value.(int64)} 
     } else if dtype == "INT" {
-		feat.Value = &torch_predict_protos.PBFeature_IntFeature{IntFeature: int32(value.(int))}
+        feat.Value = &torch_predict_protos.PBFeature_IntFeature{IntFeature: int32(value.(int))}
     } else if isListType(dtype) {
         return tr.AddToListField(feat,value, dtype)
     } else if isMapType(dtype) {
@@ -49,13 +49,13 @@ func (tr *TorchRecRequest) AddFeat(value interface{}, dtype string) (*torch_pred
         if lists, ok := value.([][]float32); ok {
             flists := &torch_predict_protos.FloatLists{}
             for _, sublist := range lists {
-				list := &torch_predict_protos.FloatList{}
-				for _, v := range sublist {
-					list.Features = append(list.Features, v)
-				}
-				flists.Lists = append(flists.Lists, list) 
+                list := &torch_predict_protos.FloatList{}
+                for _, v := range sublist {
+                    list.Features = append(list.Features, v)
+                }
+                flists.Lists = append(flists.Lists, list) 
             }
-			feat.Value = &torch_predict_protos.PBFeature_FloatLists{FloatLists: flists}
+            feat.Value = &torch_predict_protos.PBFeature_FloatLists{FloatLists: flists}
         } else {
             return nil, errors.New("Expected value to be a list of lists for ARRAY<ARRAY<FLOAT>>/LIST<LIST<FLOAT>> dtype")
         }
@@ -66,69 +66,65 @@ func (tr *TorchRecRequest) AddFeat(value interface{}, dtype string) (*torch_pred
 }
 
 func isMap(value interface{}) bool {
-	val := reflect.ValueOf(value)
-	return val.Kind() == reflect.Map 
+    val := reflect.ValueOf(value)
+    return val.Kind() == reflect.Map 
 }
 
 func isList(value interface{}) bool {
-	val := reflect.ValueOf(value)
-	return val.Kind() == reflect.Slice
+    val := reflect.ValueOf(value)
+    return val.Kind() == reflect.Slice
 }
 
 func isEmpty(value interface{}) bool {
-	val := reflect.ValueOf(value)
-
+    val := reflect.ValueOf(value)
     if !val.IsValid() {
-		return true
-	}
+        return true
+    }
 
     if val.Kind() == reflect.Ptr || val.Kind() == reflect.Interface {
-		return val.IsNil()
-	}
-
-	return (isMap(value) && val.Len() == 0) || (isList(value) && val.Len() == 0)
+        return val.IsNil()
+    }
+    return (isMap(value) && val.Len() == 0) || (isList(value) && val.Len() == 0)
 }
 
 func isListType(dtype string) bool {
     validTypes := []string{
-		"LIST<FLOAT>",
-		"LIST<STRING>",
-		"LIST<DOUBLE>",
-		"LIST<INT>",
-		"LIST<INT64>",
-		"LIST<BIGINT>",
-		"ARRAY<FLOAT>",
-		"ARRAY<STRING>",
-		"ARRAY<DOUBLE>",
-		"ARRAY<INT>",
-		"ARRAY<INT64>",
-		"ARRAY<BIGINT>",
-	}
-
-	for _, validType := range validTypes {
-		if validType == dtype {
-			return true
-		}
-	}
-
-	return false
+        "LIST<FLOAT>",
+        "LIST<STRING>",
+        "LIST<DOUBLE>",
+        "LIST<INT>",
+        "LIST<INT64>",
+        "LIST<BIGINT>",
+        "ARRAY<FLOAT>",
+        "ARRAY<STRING>",
+        "ARRAY<DOUBLE>",
+        "ARRAY<INT>",
+        "ARRAY<INT64>",
+        "ARRAY<BIGINT>",
+    }
+    for _, validType := range validTypes {
+        if validType == dtype {
+            return true
+        }
+    }
+    return false
 }
 
 func isMapType(dtype string) bool {
     validTypes := []string{
-		"MAP<INT,INT>","MAP<INT,INT64>","MAP<INT,BIGINT>","MAP<INT,STRING>","MAP<INT,FLOAT>","MAP<INT,DOUBLE>" ,
+        "MAP<INT,INT>","MAP<INT,INT64>","MAP<INT,BIGINT>","MAP<INT,STRING>","MAP<INT,FLOAT>","MAP<INT,DOUBLE>" ,
         "MAP<INT64,INT>","MAP<INT64,INT64>","MAP<INT64,BIGINT>","MAP<INT64,STRING>","MAP<INT64,FLOAT>","MAP<INT64,DOUBLE>" ,
         "MAP<BIGINT,INT>","MAP<BIGINT,INT64>","MAP<BIGINT,BIGINT>","MAP<BIGINT,STRING>","MAP<BIGINT,FLOAT>","MAP<BIGINT,DOUBLE>",
-		"MAP<STRING,INT>","MAP<STRING,INT64>","MAP<STRING,BIGINT>","MAP<STRING,STRING>","MAP<STRING,FLOAT>","MAP<STRING,DOUBLE>",
-	}
+        "MAP<STRING,INT>","MAP<STRING,INT64>","MAP<STRING,BIGINT>","MAP<STRING,STRING>","MAP<STRING,FLOAT>","MAP<STRING,DOUBLE>",
+    }
 
-	for _, validType := range validTypes {
-		if validType == dtype {
-			return true
-		}
-	}
+    for _, validType := range validTypes {
+        if validType == dtype {
+            return true
+        }
+    }
 
-	return false
+    return false
 }
 
 func (tr *TorchRecRequest) AddToListField(feat *torch_predict_protos.PBFeature, value interface{}, dtype string) (*torch_predict_protos.PBFeature, error) {
@@ -371,7 +367,7 @@ func (tr *TorchRecRequest) AddToMapField(feat *torch_predict_protos.PBFeature, v
 
 // add user features for torchrecrequest
 func (tr *TorchRecRequest) AddUserFeature(key string,value interface{}, dtype string)  {
-	feat, err := tr.AddFeat(value, dtype)
+    feat, err := tr.AddFeat(value, dtype)
     if err != nil{
         fmt.Println("failed to add user feature, key:",key," the err is:",err)
         return 
@@ -380,13 +376,13 @@ func (tr *TorchRecRequest) AddUserFeature(key string,value interface{}, dtype st
     if tr.RequestData.UserFeatures == nil {
         tr.RequestData.UserFeatures = make(map[string]*torch_predict_protos.PBFeature) 
     }
-	tr.RequestData.UserFeatures[key] = feat
+    tr.RequestData.UserFeatures[key] = feat
     
 }
 
 // add context features for torchrecrequest
 func (tr *TorchRecRequest) AddContextFeature(key string,value interface{}, dtype string) {
-	feat, err := tr.AddFeat(value, dtype)
+    feat, err := tr.AddFeat(value, dtype)
     if err != nil{
         fmt.Println("failed to add context feature, key:",key," the err is:",err)
         return 
@@ -399,38 +395,38 @@ func (tr *TorchRecRequest) AddContextFeature(key string,value interface{}, dtype
         tr.RequestData.ContextFeatures[key] = &torch_predict_protos.ContextFeatures{}
     }
 
-	tr.RequestData.ContextFeatures[key].Features = append(tr.RequestData.ContextFeatures[key].Features, feat)
+    tr.RequestData.ContextFeatures[key].Features = append(tr.RequestData.ContextFeatures[key].Features, feat)
 }
 
 // add item ids for torchrecrequest
 func (tr *TorchRecRequest) AddItemId(itemId string) {
-	tr.RequestData.ItemIds = append(tr.RequestData.ItemIds, itemId)
+    tr.RequestData.ItemIds = append(tr.RequestData.ItemIds, itemId)
 }
 
 
 
 // ToString for interface
 func (tr TorchRecRequest) ToString() (string, error) {
-	reqData, err := proto.Marshal(&tr.RequestData)
-	if err != nil {
-		return "", NewPredictError(-1, "", err.Error())
-	}
-	return string(reqData), nil
+    reqData, err := proto.Marshal(&tr.RequestData)
+    if err != nil {
+        return "", NewPredictError(-1, "", err.Error())
+    }
+    return string(reqData), nil
 }
 
 // TorchResponse class for PyTorch predicted results
 type TorchRecResponse struct {
-	Response torch_predict_protos.PBResponse
+    Response torch_predict_protos.PBResponse
 }
 
 // GetTensorShape returns []int64 slice as shape of tensor outindexed
 func (resp *TorchRecResponse) GetTensorShapeMap(outIndex string) []int64 {
-	return resp.Response.MapOutputs[outIndex].ArrayShape.Dim
+    return resp.Response.MapOutputs[outIndex].ArrayShape.Dim
 }
 
 // GetFloatValMap returns []float32 slice as output data
 func (resp *TorchRecResponse) GetFloatValMap(outIndex string) []float32 {
-	return resp.Response.MapOutputs[outIndex].GetFloatVal()
+    return resp.Response.MapOutputs[outIndex].GetFloatVal()
 }
 
 // GetDoubleValMap returns []float64 slice as output data
@@ -440,21 +436,21 @@ func (resp *TorchRecResponse) GetDoubleValMap(outIndex string) []float64 {
 
 // GetIntValMap returns []int32 slice as output data
 func (resp *TorchRecResponse) GetIntValMap(outIndex string) []int32 {
-	return resp.Response.MapOutputs[outIndex].GetIntVal()
+    return resp.Response.MapOutputs[outIndex].GetIntVal()
 }
 
 // GetInt64ValMap returns []int64 slice as output data
 func (resp *TorchRecResponse) GetInt64ValMap(outIndex string) []int64 {
-	return resp.Response.MapOutputs[outIndex].GetInt64Val()
+    return resp.Response.MapOutputs[outIndex].GetInt64Val()
 }
 
 // Unmarshal for interface
 func (resp *TorchRecResponse) unmarshal(body []byte) error {
-	bd := &torch_predict_protos.PBResponse{}
-	err := proto.Unmarshal(body, bd)
-	if err != nil {
-		return err
-	}
-	resp.Response = *bd
-	return nil
+    bd := &torch_predict_protos.PBResponse{}
+    err := proto.Unmarshal(body, bd)
+    if err != nil {
+        return err
+    }
+    resp.Response = *bd
+    return nil
 }

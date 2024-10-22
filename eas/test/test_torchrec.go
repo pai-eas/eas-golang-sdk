@@ -7,7 +7,7 @@ import (
 )
 
 func main() {
-	
+
 	client := eas.NewPredictClient("cn-beijing.pai-eas.aliyuncs.com", "test_torch_rec_multi_tower_din_gpu")
 	client.SetToken("tokenGeneratedFromService")
 	client.Init()
@@ -15,7 +15,7 @@ func main() {
 
 	req.AddItemId("7033")
 	req.AddUserFeature("user_id",33981,"int")
-	
+
 	length := 4
 	array := make([]float64, length)
 	array[0] = 0.24689289764507472
@@ -23,23 +23,23 @@ func main() {
 	array[2] = 0.6765301324940026
 	array[3] = 0.18137273055602343
 	req.AddUserFeature("raw_3",array,"list<double>")
-	
+
 	myMap := make(map[string]int32)
 	myMap["866"] = 4143
 	myMap["1627"] = 2451
 	req.AddUserFeature("map_1",myMap,"map<string,int>")
 
 	rows := 3
-    cols := 4
-    array2 := make([][]float32, rows)
-    for i := range array2 {
-        array2[i] = make([]float32, cols)
-    }
-    for i := 0; i < rows; i++ {
-        for j := 0; j < cols; j++ {
-            array2[i][j] = 1.0
-        }
-    }
+	cols := 4
+	array2 := make([][]float32, rows)
+	for i := range array2 {
+		array2[i] = make([]float32, cols)
+	}
+	for i := 0; i < rows; i++ {
+		for j := 0; j < cols; j++ {
+			array2[i][j] = 1.0
+		}
+	}
 	req.AddUserFeature("click",array2,"list<list<float>>")
 
 	req.AddContextFeature("id_2",array,"list<double>")
