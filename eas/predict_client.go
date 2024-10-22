@@ -333,8 +333,12 @@ func (p *PredictClient) Predict(request Request) (Response, error) {
 		resp := TorchResponse{}
 		unmarshalErr := resp.unmarshal(body)
 		return &resp, unmarshalErr
+	case TorchRecRequest:
+		resp := TorchRecResponse{}
+		unmarshalErr := resp.unmarshal(body)
+		return &resp, unmarshalErr
 	default:
-		return nil, NewPredictError(-1, "", "Unknown request type, currently support StringRequest, TFRequest and TorchRequest.")
+		return nil, NewPredictError(-1, "", "Unknown request type, currently support StringRequest, TFRequest, TorchRequest and TorchRecRequest.")
 	}
 }
 
@@ -351,6 +355,15 @@ func (p *PredictClient) TorchPredict(request TorchRequest) (*TorchResponse, erro
 		return nil, err
 	}
 	return resp.(*TorchResponse), err
+}
+
+// TorchRecPredict function send input data and return TorchRec predicted result
+func (p *PredictClient) TorchRecPredict(request TorchRecRequest) (*TorchRecResponse, error) {
+	resp, err := p.Predict(request)
+	if err != nil {
+		return nil, err
+	}
+	return resp.(*TorchRecResponse), err
 }
 
 // TFPredict function send input data and return TensorFlow predicted result

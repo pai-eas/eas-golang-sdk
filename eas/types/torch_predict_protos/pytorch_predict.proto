@@ -71,10 +71,18 @@ message PredictRequest {
 
   // Output filter.
   repeated int32 output_filter = 2;
+
+  // Input tensors for rec
+  map<string, ArrayProto> map_inputs = 3;
+
+  // debug_level for rec
+  int32 debug_level = 100;
 }
 
 // Response for PredictRequest on successful run.
 message PredictResponse {
   // Output tensors.
   repeated ArrayProto outputs = 1;
+  // Output tensors for rec.
+  map<string, ArrayProto> map_outputs = 2;
 }
