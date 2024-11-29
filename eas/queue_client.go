@@ -16,7 +16,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/pai-eas/eas-golang-sdk/eas/types"
+	"github.com/xd-luqiang/eas-golang-sdk/eas/types"
 	"golang.org/x/net/websocket"
 )
 

@@ -1,7 +1,7 @@
 package eas
 
 import (
-	"github.com/pai-eas/eas-golang-sdk/eas/types/torch_predict_protos"
+	"github.com/xd-luqiang/eas-golang-sdk/eas/types/torch_predict_protos"
 )
 
 // type torch_predict_protos.ArrayDataType torch_predict_protos.ArrayDataType

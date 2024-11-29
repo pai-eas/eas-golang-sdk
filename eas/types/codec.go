@@ -7,7 +7,7 @@ import (
 	"encoding/json"
 	"io"
 
-	"github.com/pai-eas/eas-golang-sdk/eas/types/queue_service_protos"
+	"github.com/xd-luqiang/eas-golang-sdk/eas/types/queue_service_protos"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -243,10 +243,10 @@ type lengthDelimitedFrameReader struct {
 //
 // The protocol is:
 //
-//   stream: message ...
-//   message: prefix body
-//   prefix: 4 byte uint32 in BigEndian order, denotes length of body
-//   body: bytes (0..prefix)
+//	stream: message ...
+//	message: prefix body
+//	prefix: 4 byte uint32 in BigEndian order, denotes length of body
+//	body: bytes (0..prefix)
 //
 // If the buffer passed to Read is not long enough to contain an entire frame, io.ErrShortRead
 // will be returned along with the number of bytes read.
