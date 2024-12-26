@@ -27,7 +27,7 @@ func main() {
 	myMap := make(map[string]int32)
 	myMap["866"] = 4143
 	myMap["1627"] = 2451
-	req.AddUserFeature("map_1",myMap,"map<string,int>")
+	req.AddUserFeature("map_2",myMap,"map<string,int>")
 
 	rows := 3
 	cols := 4
@@ -47,6 +47,9 @@ func main() {
 
 	req.AddContextFeature("id_3","a","string")
 	req.AddContextFeature("id_3","b","string")
+
+	req.AddItemFeature("id_4","a","string")
+	req.AddItemFeature("id_4","b","string")
 
 	req.SetDebugLevel(903)
 	fmt.Println(req)

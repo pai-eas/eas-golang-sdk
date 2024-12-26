@@ -1,7 +1,7 @@
 syntax = "proto3";
 
 
-
+option go_package = ".;torch_predict_protos";
 option java_package = "com.aliyun.openservices.eas.predict.proto";
 option java_outer_classname = "TorchRecPredictProtos";
 
@@ -145,18 +145,21 @@ message PBRequest {
   // debug mode
   int32 debug_level = 1;
 
-  // user features
+  // user features, key is user input name
   map<string, PBFeature> user_features = 2;
 
   // item ids
   repeated string item_ids = 3;
 
-  // context features for each item
+  // context features for each item, key is item_id
   map<string, ContextFeatures> context_features = 4;
 
   // number of nearest neighbors(items) to retrieve
   // from faiss
   int32 faiss_neigh_num = 5;
+
+  // item features for each item, key is item_id
+  map<string, ContextFeatures> item_features = 6;
 }
 
 // PBResponse specifies the response for aggregator

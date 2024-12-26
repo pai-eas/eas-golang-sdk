@@ -398,6 +398,24 @@ func (tr *TorchRecRequest) AddContextFeature(key string,value interface{}, dtype
     tr.RequestData.ContextFeatures[key].Features = append(tr.RequestData.ContextFeatures[key].Features, feat)
 }
 
+// add item features for torchrecrequest
+func (tr *TorchRecRequest) AddItemFeature(key string,value interface{}, dtype string) {
+    feat, err := tr.AddFeat(value, dtype)
+    if err != nil{
+        fmt.Println("failed to add context feature, key:",key," the err is:",err)
+        return 
+    }
+    if tr.RequestData.ItemFeatures == nil {
+        tr.RequestData.ItemFeatures = make(map[string]*torch_predict_protos.ContextFeatures)
+    }
+
+    if tr.RequestData.ItemFeatures[key] == nil {
+        tr.RequestData.ItemFeatures[key] = &torch_predict_protos.ContextFeatures{}
+    }
+
+    tr.RequestData.ItemFeatures[key].Features = append(tr.RequestData.ItemFeatures[key].Features, feat)
+}
+
 // add item ids for torchrecrequest
 func (tr *TorchRecRequest) AddItemId(itemId string) {
     tr.RequestData.ItemIds = append(tr.RequestData.ItemIds, itemId)
