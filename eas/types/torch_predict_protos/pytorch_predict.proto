@@ -1,5 +1,5 @@
 syntax = "proto3";
-
+option go_package = ".;torch_predict_protos";
 package pytorch.eas;
 option cc_enable_arenas = true;
 
