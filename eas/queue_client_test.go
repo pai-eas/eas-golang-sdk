@@ -236,10 +236,10 @@ func TestWatchWithReconnect(t *testing.T) {
 
 func TestDemoWatch(t *testing.T) {
 	const (
-		QueueEndpoint   = "1662339980757310.cn-hangzhou.pai-eas.aliyuncs.com"
-		inputQueueName  = "echo_async"
-		outputQueueName = "echo_async/sink"
-		QueueToken      = "test-token"
+		QueueEndpoint   = ""
+		inputQueueName  = ""
+		outputQueueName = ""
+		QueueToken      = ""
 	)
 	inuptQueue, err := NewQueueClient(QueueEndpoint, inputQueueName, QueueToken)
 
