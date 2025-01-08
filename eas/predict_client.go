@@ -188,7 +188,7 @@ func (p *PredictClient) SetServiceName(serviceName string) {
 	p.serviceName = serviceName
 }
 
-// SetRequestPath sets compressor type for client
+// SetRequestPath sets requestPath for client
 func (p *PredictClient) SetRequestPath(requestPath string) {
 	if len(requestPath) > 0 && requestPath[0] != '/' {
 		requestPath = "/" + requestPath
@@ -196,7 +196,7 @@ func (p *PredictClient) SetRequestPath(requestPath string) {
 	p.requestPath = requestPath
 }
 
-// SetRequestPath sets compressor type for client
+// SetIsInternalDirect sets internal direct for client
 func (p *PredictClient) SetIsInternalDirect(internal bool) {
 	p.internal = internal
 }
