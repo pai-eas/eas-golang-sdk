@@ -7,13 +7,16 @@ import (
 )
 
 const (
-	EndpointName    = "1828488879222746.cn-shanghai.pai-eas.aliyuncs.com"
-	PMMLName        = "scorecard_pmml_example"
-	PMMLToken       = ""
-	TensorflowName  = "mnist_saved_model_example"
-	TensorflowToken = ""
-	TorchName       = "pytorch_resnet_example"
-	TorchToken      = ""
+	EndpointName        = "1157703270994901.cn-hangzhou.pai-eas-dev.aliyuncs.com"
+	PMMLName            = "scorecard_pmml_example"
+	PMMLToken           = ""
+	TensorflowName      = "mnist_saved_model_example"
+	TensorflowToken     = ""
+	TorchName           = "pytorch_resnet_example"
+	TorchToken          = ""
+	TestName            = "sleep_test"
+	TestToken           = "test-token"
+	CacheServerEndpoint = "pai-eas-dev-internet.cn-hangzhou.aliyuncs.com"
 )
 
 func TestString(t *testing.T) {
@@ -71,4 +74,22 @@ func TestTorch(t *testing.T) {
 		fmt.Println(resp.GetTensorShape(0), resp.GetFloatVal(0))
 	}
 	fmt.Println("average response time : ", time.Since(st)/10)
+}
+
+func TestRequestPath(t *testing.T) {
+
+	client := NewPredictClient(EndpointName, TestName)
+	client.SetToken(TestToken)
+	client.SetRequestPath("sleep")
+	//client.SetEndpointType(EndpointTypeDirect)
+	//client.SetIsInternalDirect(true)
+	client.Init()
+	req := "1"
+	//client.AddHeader("headerName", "headerValue")
+	resp, err := client.StringPredict(req)
+	if err != nil {
+		t.Fatalf(err.Error())
+	} else {
+		fmt.Printf("%v\n", resp)
+	}
 }

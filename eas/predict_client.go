@@ -65,7 +65,9 @@ type PredictClient struct {
 	endpointType       string
 	endpointName       string
 	serviceName        string
+	requestPath        string
 	compressType       string
+	internal           bool
 	stop               int32
 	client             http.Client
 }
@@ -86,7 +88,9 @@ func NewPredictClient(endpointName string, serviceName string, options ...HttpOp
 	client := &PredictClient{
 		endpointName: endpointName,
 		serviceName:  serviceName,
+		requestPath:  "",
 		retryCount:   5,
+		internal:     false,
 		stop:         0,
 		headers:      map[string]string{},
 		client: http.Client{
@@ -113,7 +117,7 @@ func (p *PredictClient) Init() error {
 		p.endpoint = newVipServerEndpoint(p.endpointName)
 		go p.syncHandler()
 	case EndpointTypeDirect:
-		p.endpoint = newCacheServerEndpoint(p.endpointName, p.serviceName)
+		p.endpoint = newCacheServerEndpoint(p.endpointName, p.serviceName, WithInternalDirect(p.internal))
 		go p.syncHandler()
 	default:
 		return NewPredictError(http.StatusBadRequest, "", "Unsupported endpoint type: "+p.endpointType)
@@ -184,6 +188,19 @@ func (p *PredictClient) SetServiceName(serviceName string) {
 	p.serviceName = serviceName
 }
 
+// SetRequestPath sets compressor type for client
+func (p *PredictClient) SetRequestPath(requestPath string) {
+	if len(requestPath) > 0 && requestPath[0] != '/' {
+		requestPath = "/" + requestPath
+	}
+	p.requestPath = requestPath
+}
+
+// SetRequestPath sets compressor type for client
+func (p *PredictClient) SetIsInternalDirect(internal bool) {
+	p.internal = internal
+}
+
 // SetCompressType sets compressor type for client
 func (p *PredictClient) SetCompressType(compressType string) {
 	p.compressType = compressType
@@ -199,13 +216,13 @@ func (p *PredictClient) createUrl(host string) string {
 			p.serviceName = p.serviceName[:len(p.serviceName)-1]
 		}
 	}
-	return fmt.Sprintf("http://%s/api/predict/%s", host, p.serviceName)
+	return fmt.Sprintf("http://%s/api/predict/%s%s", host, p.serviceName, p.requestPath)
 }
 
 // generateSignature computes the signature header using the access token with hmac sha1 algorithm.
 // returns the headers including signature header for authentication.
 func (p *PredictClient) generateSignature(requestData []byte) map[string]string {
-	canonicalizedResource := fmt.Sprintf("/api/predict/%s", p.serviceName)
+	canonicalizedResource := fmt.Sprintf("/api/predict/%s%s", p.serviceName, p.requestPath)
 	contentMd5 := md5sum(requestData)
 	contentType := "application/octet-stream"
 	currentTime := time.Now().Format("Mon, 02 Jan 2006 15:04:05 GMT")
@@ -311,10 +328,6 @@ type Response interface {
 
 // Predict for request
 func (p *PredictClient) Predict(request Request) (Response, error) {
-	if rawRequest, ok := request.(RawRequest); ok {
-		return p.RawRequest(rawRequest)
-	}
-
 	req, err2 := request.ToString()
 	if err2 != nil {
 		return nil, err2
@@ -373,58 +386,4 @@ func (p *PredictClient) TFPredict(request TFRequest) (*TFResponse, error) {
 		return nil, err
 	}
 	return resp.(*TFResponse), err
-}
-
-// RawRequest sends the raw request in raw http Request, retry the request automatically when an error occurs
-func (p *PredictClient) RawRequest(req RawRequest) (*RawResponse, error) {
-	host := p.tryNext("")
-	var predictError *PredictError
-	for i := 0; i <= p.retryCount; i++ {
-		if i != 0 {
-			host = p.tryNext(host)
-		}
-
-		if len(host) == 0 {
-			predictError = NewPredictError(ErrorCodeServiceDiscovery, host,
-				fmt.Sprintf("No available endpoint found for service: %v", p.serviceName))
-			return nil, predictError
-		}
-
-		req.URL.Host = host
-		url := p.createUrl(host)
-
-		resp, err := p.client.Do(&req.Request)
-		if err != nil {
-			predictError = NewPredictError(ErrorCodePerformRequest, url, err.Error())
-			// retry
-			if i != p.retryCount {
-				continue
-			}
-			return nil, predictError
-		}
-
-		if resp.StatusCode != 200 {
-			predictError = NewPredictError(resp.StatusCode, url, "")
-			// retry
-			if i != p.retryCount {
-				continue
-			}
-			return nil, predictError
-		}
-
-		body, err := ioutil.ReadAll(resp.Body)
-		if err != nil {
-			predictError = NewPredictError(ErrorCodeReadResponse, url, err.Error())
-			// retry
-			if i != p.retryCount {
-				continue
-			}
-			return nil, err
-		}
-		resp.Body.Close()
-		rawResp := RawResponse{data: body}
-
-		return &rawResp, nil
-	}
-	return nil, predictError
 }

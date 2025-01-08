@@ -233,3 +233,60 @@ func TestWatchWithReconnect(t *testing.T) {
 	assertNoError(t, err)
 	assertEqual(t, attrs["stream.length"], "0")
 }
+
+func TestDemoWatch(t *testing.T) {
+	const (
+		QueueEndpoint   = "1662339980757310.cn-hangzhou.pai-eas.aliyuncs.com"
+		inputQueueName  = "echo_async"
+		outputQueueName = "echo_async/sink"
+		QueueToken      = "test-token"
+	)
+	inuptQueue, err := NewQueueClient(QueueEndpoint, inputQueueName, QueueToken)
+
+	// truncate all messages in the queue
+	attrs, err := inuptQueue.Attributes()
+	if index, ok := attrs["stream.lastEntry"]; ok {
+		idx, _ := strconv.ParseUint(index, 10, 64)
+		inuptQueue.Truncate(context.Background(), idx+1)
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+
+	// create a goroutine to send messages to the queue
+	go func() {
+		i := 0
+		for {
+			select {
+			case <-time.NewTicker(time.Microsecond * 1).C:
+				_, _, err := inuptQueue.Put(context.Background(), []byte(strconv.Itoa(i)), types.Tags{})
+				if err != nil {
+					fmt.Printf("Error occured, retry to handle it: %v\n", err)
+				}
+				i += 1
+			case <-ctx.Done():
+				break
+			}
+		}
+	}()
+
+	outputQueue, err := NewQueueClient(QueueEndpoint, outputQueueName, QueueToken)
+	// create a watcher to watch the messages from the queue
+	watcher, err := outputQueue.Watch(context.Background(), 0, 5, false, false)
+	if err != nil {
+		fmt.Printf("Failed to create a watcher to watch the queue: %v\n", err)
+		return
+	}
+	// read messages from the queue and commit manually
+	for i := 0; i < 100; i++ {
+		df := <-watcher.FrameChan()
+		fmt.Printf("Get data: %v\n", string(df.Data))
+		err := outputQueue.Commit(context.Background(), df.Index.Uint64())
+		if err != nil {
+			fmt.Printf("Failed to commit index: %v(%v)\n", df.Index, err)
+		}
+	}
+
+	// everything is done, close the watcher
+	watcher.Close()
+	cancel()
+}
