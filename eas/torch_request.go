@@ -1,8 +1,8 @@
 package eas
 
 import (
-	"github.com/golang/protobuf/proto"
 	"github.com/pai-eas/eas-golang-sdk/eas/types/torch_predict_protos"
+	"google.golang.org/protobuf/proto"
 )
 
 // TorchRequest class for PyTorch data and requests
@@ -83,8 +83,8 @@ func (tr *TorchRequest) SetDebugLevel(debug_level int32) {
 // AddFeedMapFloat32 function adds float values map_input data for torchrequest
 func (tr *TorchRequest) AddFeedMapFloat32(index string, shape []int64, content []float32) {
 	if tr.RequestData.MapInputs == nil {
-        tr.RequestData.MapInputs = make(map[string]*torch_predict_protos.ArrayProto)
-    }
+		tr.RequestData.MapInputs = make(map[string]*torch_predict_protos.ArrayProto)
+	}
 	requestProto := torch_predict_protos.ArrayProto{
 		Dtype: TorchType_DT_FLOAT,
 		ArrayShape: &torch_predict_protos.ArrayShape{
@@ -98,8 +98,8 @@ func (tr *TorchRequest) AddFeedMapFloat32(index string, shape []int64, content [
 // AddFeedMapFloat64 function adds double values map_input data for torchrequest
 func (tr *TorchRequest) AddFeedMapFloat64(index string, shape []int64, content []float64) {
 	if tr.RequestData.MapInputs == nil {
-        tr.RequestData.MapInputs = make(map[string]*torch_predict_protos.ArrayProto)
-    }
+		tr.RequestData.MapInputs = make(map[string]*torch_predict_protos.ArrayProto)
+	}
 	requestProto := torch_predict_protos.ArrayProto{
 		Dtype: TorchType_DT_DOUBLE,
 		ArrayShape: &torch_predict_protos.ArrayShape{
@@ -113,8 +113,8 @@ func (tr *TorchRequest) AddFeedMapFloat64(index string, shape []int64, content [
 // AddFeedMapInt32 function adds int values map_input data for torchrequest
 func (tr *TorchRequest) AddFeedMapInt32(index string, shape []int64, content []int32) {
 	if tr.RequestData.MapInputs == nil {
-        tr.RequestData.MapInputs = make(map[string]*torch_predict_protos.ArrayProto)
-    }
+		tr.RequestData.MapInputs = make(map[string]*torch_predict_protos.ArrayProto)
+	}
 	requestProto := torch_predict_protos.ArrayProto{
 		Dtype: TorchType_DT_INT32,
 		ArrayShape: &torch_predict_protos.ArrayShape{
@@ -128,8 +128,8 @@ func (tr *TorchRequest) AddFeedMapInt32(index string, shape []int64, content []i
 // AddFeedMapInt64 function adds int64 values map_input data for torchrequest
 func (tr *TorchRequest) AddFeedMapInt64(index string, shape []int64, content []int64) {
 	if tr.RequestData.MapInputs == nil {
-        tr.RequestData.MapInputs = make(map[string]*torch_predict_protos.ArrayProto)
-    }
+		tr.RequestData.MapInputs = make(map[string]*torch_predict_protos.ArrayProto)
+	}
 	requestProto := torch_predict_protos.ArrayProto{
 		Dtype: TorchType_DT_INT64,
 		ArrayShape: &torch_predict_protos.ArrayShape{
@@ -178,7 +178,6 @@ func (resp *TorchResponse) GetDoubleVal(outIndex int) []float64 {
 func (resp *TorchResponse) GetIntVal(outIndex int) []int32 {
 	return resp.Response.Outputs[outIndex].GetIntVal()
 }
-
 
 // GetInt64Val returns []int64 slice as output data
 func (resp *TorchResponse) GetInt64Val(outIndex int) []int64 {

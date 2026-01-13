@@ -1,7 +1,6 @@
 syntax = "proto3";
-package streaming;
 
-option go_package = "pkg/streaming/types";
+option go_package = "github.com/pai-eas/eas-golang-sdk/eas/types/queue_service_protos";
 
 message DataFrameProto {
   uint64                index = 1;
