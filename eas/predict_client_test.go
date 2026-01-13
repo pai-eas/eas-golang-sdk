@@ -7,16 +7,15 @@ import (
 )
 
 const (
-	EndpointName        = ""
-	PMMLName            = "scorecard_pmml_example"
-	PMMLToken           = ""
-	TensorflowName      = "mnist_saved_model_example"
-	TensorflowToken     = ""
-	TorchName           = "pytorch_resnet_example"
-	TorchToken          = ""
-	TestName            = "test_example"
-	TestToken           = ""
-	CacheServerEndpoint = "pai-eas-internet.cn-hangzhou.aliyuncs.com"
+	EndpointName    = ""
+	PMMLName        = "scorecard_pmml_example"
+	PMMLToken       = ""
+	TensorflowName  = "mnist_saved_model_example"
+	TensorflowToken = ""
+	TorchName       = "pytorch_resnet_example"
+	TorchToken      = ""
+	TestName        = "test_example"
+	TestToken       = ""
 )
 
 func TestString(t *testing.T) {
